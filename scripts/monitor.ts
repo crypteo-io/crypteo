@@ -19,7 +19,7 @@ import {
   workerStalledHtml,
   type ServiceStartupStatus,
 } from "../lib/emails/templates";
-import { adminRecipients, sendAdminAlert } from "../lib/admin-alerts";
+import { adminRecipients, plannedRestart, sendAdminAlert } from "../lib/admin-alerts";
 import { isScannerHit, parseAccessLine, ProbeWindow, ScannerTally, type ProbeOffender } from "../lib/probe-traffic";
 
 
@@ -953,6 +953,11 @@ async function sendStackStartupReport() {
   services.push({ name: "Payment Worker", status: workerStatus });
   services.push({ name: "Monitor", status: "online" });
 
+  // A clean start during a planned deploy isn't news; a degraded one still is.
+  if (plannedRestart() && services.every((svc) => svc.status === "online")) {
+    log("[ALERT] Planned deploy, every service online: startup report not emailed");
+    return;
+  }
   await sendAlert(
     "🟢 Crypteo Stack Online",
     stackStartupHtml({ timestamp, services })

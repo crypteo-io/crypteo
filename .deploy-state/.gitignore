@@ -1,0 +1,3 @@
+# deploy.sh creates `planned` here during a deploy (lib/admin-alerts.ts plannedRestart).
+*
+!.gitignore

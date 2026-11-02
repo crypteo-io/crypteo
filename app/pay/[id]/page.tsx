@@ -8,7 +8,7 @@ import { PAID_STATUSES } from "@/lib/payment/status";
 import { OG_SIZE } from "@/lib/og";
 import { OG_CARDS } from "@/lib/og-cards";
 import { NOINDEX, SITE_NAME } from "@/lib/seo";
-import { onForeignHost } from "@/lib/custom-domain";
+import { customHostMerchant, hostMetadata, onForeignHost } from "@/lib/custom-domain";
 import { HOST_MERCHANT_SELECT } from "@/lib/custom-host";
 import { prisma } from "@/lib/db";
 import {
@@ -106,17 +106,26 @@ const loadLink = cache((id: string) =>
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const link = await loadLink((await params).id);
   if (!link || !link.isActive || !link.merchant.isActive) {
-    return { title: "Payment link", robots: NOINDEX };
+    return { ...(await hostMetadata("Payment link")), robots: NOINDEX };
   }
   const title = link.title || `Pay ${link.merchant.name}`;
+  // On the merchant's own domain the platform's name appears nowhere.
+  const ownDomain = !!(await customHostMerchant());
   const description =
     link.description || `Pay ${link.merchant.name} with crypto, straight to their own wallet on a secure checkout.`;
   return {
-    title,
+    title: ownDomain ? { absolute: title } : title,
     description,
     robots: NOINDEX,
     // Setting openGraph here replaces the inherited image (app/pay/opengraph-image.tsx), so name it.
-    openGraph: { type: "website", siteName: SITE_NAME, title, description, images: [PAY_LINK_IMAGE] },
+    openGraph: {
+      type: "website",
+      siteName: ownDomain ? link.merchant.name : SITE_NAME,
+      title,
+      description,
+      // The share card is Crypteo-branded, so a merchant's own domain shows none.
+      images: ownDomain ? [] : [PAY_LINK_IMAGE],
+    },
     twitter: { card: "summary_large_image", title, description },
   };
 }

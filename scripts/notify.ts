@@ -5,7 +5,7 @@
  */
 import "dotenv/config";
 import { lifecycleHtml } from "../lib/emails/templates";
-import { adminRecipients, sendAdminAlert } from "../lib/admin-alerts";
+import { adminRecipients, sendLifecycleAlert } from "../lib/admin-alerts";
 
 const [, , service = "Unknown", event = "starting"] = process.argv;
 
@@ -21,7 +21,7 @@ const subject = isStarting
 
 const timestamp = new Date().toISOString();
 
-sendAdminAlert(
+sendLifecycleAlert(
   subject,
   lifecycleHtml({
     service,

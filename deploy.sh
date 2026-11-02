@@ -170,6 +170,25 @@ prune_orphaned_volumes() {
 
 # ── Commands ─────────────────────────────────────────────────────────────────
 
+# Restart notices stay quiet while this marker exists (lib/admin-alerts.ts
+# plannedRestart; every container mounts .deploy-state). Removed on any exit,
+# so a crash after the deploy is reported as usual.
+mark_planned_restart() {
+  touch "$APP_DIR/.deploy-state/planned"
+  trap 'rm -f "$APP_DIR/.deploy-state/planned"' EXIT
+}
+
+# The monitor emails its startup report once the stack is healthy, after the
+# deploy's last steps: keep the marker until it has made that decision (its
+# first check cycle follows), or 3 minutes at most.
+await_monitor_report() {
+  local since="$1"
+  for _ in $(seq 1 36); do
+    $COMPOSE logs --since "$since" monitor 2>/dev/null | grep -q "\[CYCLE\]" && return
+    sleep 5
+  done
+}
+
 cmd_deploy() {
   local NEW_TAG="$1"
   if [ -z "$NEW_TAG" ]; then
@@ -203,6 +222,9 @@ cmd_deploy() {
     exit 1
   fi
 
+  mark_planned_restart
+  local started
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   echo "==> Starting $NEW_TAG..."
   bring_up "$NEW_TAG"
 
@@ -233,6 +255,7 @@ cmd_deploy() {
   prune_orphaned_volumes
 
   save_versions "$NEW_TAG" "$CURRENT_TAG"
+  await_monitor_report "$started"
 
   echo ""
   echo "==> Deploy complete."
@@ -254,6 +277,9 @@ cmd_rollback() {
   git fetch --tags --force
   git checkout "tags/$PREVIOUS_TAG"
 
+  mark_planned_restart
+  local started
+  started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   # Reuse the retained previous image (kept by prune) — no rebuild.
   echo "==> Starting previous image ($PREVIOUS_TAG)..."
   bring_up "$PREVIOUS_TAG"
@@ -269,6 +295,7 @@ cmd_rollback() {
 
   prune_orphaned_volumes
   save_versions "$PREVIOUS_TAG" ""
+  await_monitor_report "$started"
 
   echo ""
   echo "==> Rollback complete."

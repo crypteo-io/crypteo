@@ -5,7 +5,7 @@ import {
   FUNDS_SEEN_STATUSES,
 } from "@/components/checkout/types";
 import { BRANDING_MERCHANT_SELECT, toCheckoutBranding } from "@/lib/branding";
-import { onForeignHost } from "@/lib/custom-domain";
+import { hostMetadata, onForeignHost } from "@/lib/custom-domain";
 import { HOST_MERCHANT_SELECT } from "@/lib/custom-host";
 import { prisma } from "@/lib/db";
 import { canReassign, usdBase } from "@/lib/payment/assign";
@@ -17,7 +17,9 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 // A buyer's own session: never listed in search results.
-export const metadata: Metadata = { title: "Checkout", robots: NOINDEX };
+export async function generateMetadata(): Promise<Metadata> {
+  return { ...(await hostMetadata("Checkout")), robots: NOINDEX };
+}
 
 export default async function CheckoutPage({
   params,
