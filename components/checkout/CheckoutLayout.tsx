@@ -1,4 +1,7 @@
+"use client";
+
 import { TestModeBadge } from "@/components/checkout/CheckoutSteps";
+import { usePlatformMark } from "@/components/checkout/CheckoutContact";
 import { MerchantLogo } from "@/components/checkout/MerchantLogo";
 import { Logo } from "@/components/site/Logo";
 import type { ReactNode } from "react";
@@ -32,6 +35,7 @@ export function CheckoutLayout({
   isTest?: boolean;
   children: ReactNode;
 }) {
+  const platformMark = usePlatformMark();
   return (
     <div className="frame bg-white/60 shadow-[0_24px_60px_rgba(6,15,22,0.08)] backdrop-blur-sm">
       <div className="frame-inner overflow-hidden lg:grid lg:min-h-[600px] lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
@@ -98,7 +102,7 @@ export function CheckoutLayout({
             {merchantLogoUrl ? (
               <MerchantLogo src={merchantLogoUrl} name={merchantName} className="max-h-12 max-w-[220px]" />
             ) : (
-              <Logo className="gap-2" markClassName="size-6" />
+              platformMark && <Logo className="gap-2" markClassName="size-6" />
             )}
           </div>
         </aside>

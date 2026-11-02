@@ -6,7 +6,7 @@ import {
   lifecycleHtml,
   workerCrashHtml,
 } from "../lib/emails/templates";
-import { sendAdminAlert } from "../lib/admin-alerts";
+import { sendAdminAlert, sendLifecycleAlert } from "../lib/admin-alerts";
 import { GRACE_PERIOD_MS, TOPUP_WINDOW_MS } from "../lib/payment/match";
 import { deliverWebhook } from "../lib/payment/notify";
 import { expireStalePending, timeoutStaleConfirming } from "./expiry";
@@ -437,7 +437,7 @@ async function shutdown(signal: string) {
   console.log(`[${ts}] Received ${signal}, shutting down gracefully...`);
   shuttingDown = true;
 
-  await notify(
+  await sendLifecycleAlert(
     "🟡 Crypteo Worker Shutting Down",
     lifecycleHtml({
       service: "Payment Worker",
@@ -445,7 +445,7 @@ async function shutdown(signal: string) {
       detail: `Signal: ${signal}. Draining ${inFlight.size} in-flight poll(s).`,
       timestamp: ts,
     }),
-  );
+  ).catch(console.error);
 
   const deadline = Date.now() + 30_000;
   while (inFlight.size > 0 && Date.now() < deadline) {

@@ -41,6 +41,9 @@ services:
     ports:
       - "${APP_BIND:-127.0.0.1:3010}:3000"
     env_file: .env
+    volumes:
+      # Planned-deploy marker (deploy.sh): restart notices stay quiet while it exists.
+      - ./.deploy-state:/app/.deploy-state:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +66,9 @@ services:
     image: crypteo-worker:${APP_VERSION:-latest}
     command: npx tsx workers/scheduler.ts
     env_file: .env
+    volumes:
+      # Planned-deploy marker (deploy.sh): restart notices stay quiet while it exists.
+      - ./.deploy-state:/app/.deploy-state:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -253,6 +259,8 @@ services:
     command: npx tsx scripts/monitor.ts
     env_file: .env
     volumes:
+      # Planned-deploy marker (deploy.sh): restart notices stay quiet while it exists.
+      - ./.deploy-state:/app/.deploy-state:ro
       - nginx_logs:/var/log/nginx:ro
       # Read-only so the monitor can verify backup freshness/outcome but can
       # never modify or delete a restore point.

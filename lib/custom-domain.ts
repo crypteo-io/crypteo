@@ -1,8 +1,12 @@
 import crypto from "crypto";
 import { resolveTxt } from "dns/promises";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { cache } from "react";
 import { z } from "zod";
-import { isPlatformHostname, servesHost, siteHostname } from "./custom-host";
+import { BRANDING_MERCHANT_SELECT, toCheckoutBranding, type CheckoutBranding } from "./branding";
+import { hostnameOf, isCustomHost, isPlatformHostname, servesHost, siteHostname } from "./custom-host";
+import { prisma } from "./db";
 
 // Custom domains for payment links (Payment links page). A merchant adds a
 // subdomain of theirs, proves they own it with a TXT record, and points it at
@@ -30,6 +34,27 @@ export const customDomainSchema = z
 /** A page of this merchant's requested on a hostname that isn't theirs (another merchant's, or unverified). */
 export async function onForeignHost(merchant: Parameters<typeof servesHost>[0]): Promise<boolean> {
   return !servesHost(merchant, (await headers()).get("host"));
+}
+
+/** The verified merchant whose domain this request is on; null on our own hosts. One query per request. */
+export const customHostMerchant = cache(async (): Promise<CheckoutBranding | null> => {
+  const host = (await headers()).get("host");
+  if (!isCustomHost(host)) return null;
+  const merchant = await prisma.merchant.findFirst({
+    where: { customDomain: hostnameOf(host), customDomainVerifiedAt: { not: null }, isActive: true },
+    select: BRANDING_MERCHANT_SELECT,
+  });
+  return merchant ? toCheckoutBranding(merchant) : null;
+});
+
+/**
+ * A page's metadata on a merchant's own domain: titled after the merchant, and
+ * without the platform's inherited description and share tags.
+ */
+export async function hostMetadata(title: string): Promise<Metadata> {
+  const merchant = await customHostMerchant();
+  if (!merchant) return { title };
+  return { title: { absolute: `${title} | ${merchant.name}` }, description: null, openGraph: null, twitter: null };
 }
 
 /** Where merchants point their CNAME. */

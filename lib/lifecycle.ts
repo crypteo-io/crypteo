@@ -1,4 +1,4 @@
-import { adminRecipients, sendAdminAlert } from "./admin-alerts";
+import { adminRecipients, sendLifecycleAlert } from "./admin-alerts";
 import { lifecycleHtml } from "./emails/templates";
 
 export async function registerLifecycle() {
@@ -7,7 +7,7 @@ export async function registerLifecycle() {
   // Startup notification is handled by the monitor (consolidated stack report).
   // Only register shutdown handler here.
   const shutdown = async (signal: string) => {
-    await sendAdminAlert(
+    await sendLifecycleAlert(
       "🟡 Crypteo App Shutting Down",
       lifecycleHtml({
         service: "App Server",

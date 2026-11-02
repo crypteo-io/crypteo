@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckoutClient } from "@/components/checkout/CheckoutClient";
-import { CheckoutColumn } from "@/components/checkout/CheckoutShell";
+import { CheckoutColumn } from "@/components/checkout/CheckoutColumn";
 import { PayClient } from "@/components/checkout/PayClient";
 import { checkoutPaletteStyle, type CheckoutBranding } from "@/lib/branding";
 import { DEMO_RATES, DEMO_SOL_MEMO, DEMO_WALLETS } from "@/lib/checkout-demo";
