@@ -1,0 +1,31 @@
+# Merchants' custom domains (pay.theirstore.com → CNAME → CUSTOM_DOMAIN_TARGET).
+# Caddy holds the host's public 80/443 so it can complete the TLS handshake
+# for hostnames it has never seen and obtain their certificates on demand.
+# crypteo.io itself never comes here: Cloudflare reaches nginx on 8443.
+{
+	on_demand_tls {
+		# The gate: a certificate is requested only for a hostname a merchant
+		# has verified (TXT record). Without it, any name pointed at this box
+		# would spend Let's Encrypt's per-domain rate limits.
+		ask http://app:3000/api/custom-domains/allowed
+	}
+}
+
+# The CNAME target itself (DNS only, grey cloud), so opening it answers.
+{$CUSTOM_DOMAIN_TARGET:localhost} {
+	respond "Crypteo custom domain endpoint. Point your payment-link subdomain here with a CNAME." 200
+}
+
+# Every other hostname: a verified merchant domain, or refused by the gate.
+# Clients connect directly (no Cloudflare), so their socket address is the
+# client IP; anything they sent claiming otherwise is dropped.
+https:// {
+	tls {
+		on_demand
+	}
+	reverse_proxy app:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up -X-Forwarded-For
+		header_up -CF-Connecting-IP
+	}
+}

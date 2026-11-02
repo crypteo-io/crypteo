@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { customDomainSchema, newVerificationToken, unregisterHostname } from "@/lib/custom-domain";
+import { customDomainSchema, newVerificationToken } from "@/lib/custom-domain";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { Prisma } from "@prisma/client";
@@ -20,7 +20,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid domain", field: "domain" }, { status: 400 });
   }
   const { domain } = parsed.data;
-  const current = await prisma.merchant.findUnique({ where: { id: session.user.id }, select: { customDomain: true } });
 
   // Only proof of ownership holds a domain: an unverified claim never blocks
   // its real owner (anyone could squat on pay.yourstore.com otherwise).
@@ -34,7 +33,6 @@ export async function PUT(req: NextRequest) {
       data: { customDomain: domain, customDomainToken: newVerificationToken(), customDomainVerifiedAt: null },
       select: { customDomain: true, customDomainToken: true },
     });
-    if (current?.customDomain) await unregisterHostname(current.customDomain);
     return NextResponse.json(saved);
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -51,11 +49,9 @@ export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const current = await prisma.merchant.findUnique({ where: { id: session.user.id }, select: { customDomain: true } });
   await prisma.merchant.update({
     where: { id: session.user.id },
     data: { customDomain: null, customDomainToken: null, customDomainVerifiedAt: null },
   });
-  if (current?.customDomain) await unregisterHostname(current.customDomain);
   return NextResponse.json({ success: true });
 }

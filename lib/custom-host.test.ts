@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { customDomainSchema } from "./custom-domain";
-import { isCustomHost, isCustomHostPath, paymentLinkUrl, servesHost } from "./custom-host";
+import { isCustomHost, isCustomHostPath, isInternalHost, paymentLinkUrl, servesHost } from "./custom-host";
 
 const saved = process.env.NEXTAUTH_URL;
 beforeEach(() => {
@@ -54,5 +54,14 @@ describe("customDomainSchema", () => {
     for (const v of ["shop.com", "pay.crypteo.io", "-x.shop.com", "pay.shop.123", "a b.shop.com"]) {
       expect(customDomainSchema.safeParse(v).success, v).toBe(false);
     }
+  });
+});
+
+describe("isInternalHost", () => {
+  it("is a caller on this machine, never a public hostname", () => {
+    for (const host of ["app:3000", "localhost:3000", "127.0.0.1:3000", "admin.localhost:3100", null]) {
+      expect(isInternalHost(host)).toBe(true);
+    }
+    for (const host of ["crypteo.io", "pay.shop.com"]) expect(isInternalHost(host)).toBe(false);
   });
 });

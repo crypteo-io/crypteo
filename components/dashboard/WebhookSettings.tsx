@@ -1,8 +1,9 @@
 "use client";
 
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { SecretInput } from "@/components/ui/SecretInput";
 import { ApiError, apiRequest } from "@/lib/api-client";
-import { errorMessage, toast } from "@/lib/toast";
+import { copyWithToast, errorMessage, toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import {
   AlertCircle,
@@ -548,9 +549,10 @@ export function WebhookSettings() {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
-            <Shield size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-default-400" />
-            <input
-              type="password"
+            <Shield size={16} className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-default-400" />
+            <SecretInput
+              masking="css"
+              revealLabel="signing secret"
               aria-label="Signing secret"
               value={secret}
               onChange={(e) => {
@@ -562,13 +564,17 @@ export function WebhookSettings() {
               className={cn(inputClass, "pl-11", secretError && "border-accent-red")}
             />
           </div>
-          <button
-            type="button"
-            onClick={generateSecret}
-            className="rounded-xl border border-default-200 px-4 py-3 text-[13px] font-semibold text-default-700 hover:bg-default-50 cursor-pointer"
-          >
-            Generate
-          </button>
+          {["Copy", "Generate"].map((label) => (
+            <button
+              key={label}
+              type="button"
+              onClick={label === "Copy" ? () => void copyWithToast(secret, "Signing secret copied") : generateSecret}
+              disabled={label === "Copy" && !secret}
+              className="rounded-xl border border-default-200 px-4 py-3 text-[13px] font-semibold text-default-700 hover:bg-default-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {label}
+            </button>
+          ))}
           <ActionButton onClick={saveSecret} disabled={savingSecret} variant="primary" className="px-6 py-3">
             {savingSecret ? "Saving…" : "Save secret"}
           </ActionButton>
