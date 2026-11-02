@@ -1,16 +1,16 @@
 import { prisma } from "@/lib/db";
-import { hostnameOf } from "@/lib/custom-host";
-import { rateLimit } from "@/lib/rate-limit";
+import { hostnameOf, isInternalHost } from "@/lib/custom-host";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * For a self-hosted proxy that issues certificates on demand (Caddy's
- * `on_demand_tls ask`): 200 only for a verified merchant domain, so nobody
- * can make the server request certificates for arbitrary hostnames.
+ * Caddy's `on_demand_tls ask` (caddy/Caddyfile): 200 only for a verified
+ * merchant domain, so nobody can make the server request certificates for
+ * arbitrary hostnames. Answered to callers on this machine only: through
+ * nginx or a custom domain it is a 404, so it needs no rate limit (a shared
+ * one would let a burst of junk hostnames lock out real merchants).
  */
 export async function GET(req: NextRequest) {
-  const rl = await rateLimit(req);
-  if (rl) return rl;
+  if (!isInternalHost(req.headers.get("host"))) return new NextResponse(null, { status: 404 });
   const domain = hostnameOf(req.nextUrl.searchParams.get("domain"));
   const found = domain
     ? await prisma.merchant.findFirst({

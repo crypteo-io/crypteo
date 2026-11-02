@@ -137,7 +137,7 @@ npm run test:coverage # with coverage
 
 nginx listens on the host's 80/443; behind another proxy, set `NGINX_HTTP_BIND` / `NGINX_HTTPS_BIND` (see `docker-compose.yml`). Platform fees are off until an admin turns billing on, so your own merchants are never charged unless you choose to.
 
-**Merchant custom domains** (payment links on `pay.theirstore.com`): merchants add a TXT record to prove ownership and a CNAME to `CUSTOM_DOMAIN_TARGET` (default `domains.<your domain>`). Certificates for those hostnames come from Cloudflare for SaaS (`CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_API_TOKEN`), or from a proxy with on-demand TLS that asks `GET /api/custom-domains/allowed?domain=<host>` first (for example Caddy's `on_demand_tls ask`).
+**Merchant custom domains** (payment links on `pay.theirstore.com`): merchants add a TXT record to prove ownership and a CNAME to `CUSTOM_DOMAIN_TARGET` (default `domains.<your domain>`, a DNS-only record pointing at your server). Set `COMPOSE_PROFILES=custom-domains` to start Caddy (`caddy/Caddyfile`), which gets each verified hostname a Let's Encrypt certificate on demand. Caddy needs the host's 80/443, so move nginx to other ports (`NGINX_HTTPS_BIND=8443`) and reach your own domain on that port (for example a Cloudflare Origin Rule), or put your own edge proxy in front that asks `http://127.0.0.1:3010/api/custom-domains/allowed?domain=<host>` and forwards to the app's loopback port.
 
 ```bash
 docker compose up --build -d

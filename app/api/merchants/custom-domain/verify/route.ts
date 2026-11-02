@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { cnameTarget, hasVerificationRecord, registerHostname, verificationName } from "@/lib/custom-domain";
+import { cnameTarget, hasVerificationRecord, verificationName } from "@/lib/custom-domain";
 import { prisma } from "@/lib/db";
 import { notifyAccountSecurityChange } from "@/lib/mailer";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -29,9 +29,6 @@ export async function POST(req: NextRequest) {
       { error: `No matching TXT record at ${verificationName(domain)} yet. DNS changes can take a few minutes.` },
       { status: 422 },
     );
-  }
-  if (!(await registerHostname(domain))) {
-    return NextResponse.json({ error: "Your domain checks out, but we couldn't set up its certificate. Try again shortly." }, { status: 502 });
   }
 
   const { count } = await prisma.merchant.updateMany({

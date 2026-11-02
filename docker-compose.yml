@@ -34,9 +34,12 @@ services:
   app:
     build: *app-build
     image: crypteo-app:${APP_VERSION:-latest}
-    # No published port: nginx reaches the app over the internal network, and a
-    # host mapping (0.0.0.0 by default) exposed Next directly to the internet,
-    # bypassing TLS, the rate limits and the Cloudflare real-IP handling.
+    # Loopback only, for a proxy on the host that serves merchants' custom
+    # domains (a shared host's edge Caddy). Never a bare "3010:3000": that binds
+    # 0.0.0.0 and exposed Next directly to the internet, bypassing TLS, the rate
+    # limits and the Cloudflare real-IP handling.
+    ports:
+      - "${APP_BIND:-127.0.0.1:3010}:3000"
     env_file: .env
     depends_on:
       postgres:
@@ -218,6 +221,33 @@ services:
       timeout: 10s
       retries: 3
 
+  # Merchants' custom domains only (caddy/Caddyfile): on-demand certificates
+  # for verified hostnames, proxied straight to the app, which serves them
+  # their payment pages and nothing else (lib/custom-host.ts). Opt-in
+  # (COMPOSE_PROFILES=custom-domains in .env): it needs the host's 80/443. On a
+  # host where another proxy holds them, leave it off and have that proxy ask
+  # http://127.0.0.1:3010/api/custom-domains/allowed and forward to APP_BIND.
+  caddy:
+    profiles: ["custom-domains"]
+    image: caddy:2.10.2-alpine
+    env_file: .env
+    ports:
+      - "${CADDY_HTTP_BIND:-80}:80"
+      - "${CADDY_HTTPS_BIND:-443}:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Issued certificates and the ACME account: losing them re-requests every
+      # certificate and runs into Let's Encrypt's rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - internal
+      - external
+    restart: unless-stopped
+
   monitor:
     build: *app-build
     command: npx tsx scripts/monitor.ts
@@ -238,6 +268,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  caddy_data:
+  caddy_config:
   postgres_data:
   ssl_certs:
   nginx_logs:

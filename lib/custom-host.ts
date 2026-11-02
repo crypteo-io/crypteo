@@ -17,13 +17,15 @@ export function isPlatformHostname(hostname: string): boolean {
   return hostname === site || hostname.endsWith(`.${site}`) || hostname === new URL(adminOrigin()).hostname;
 }
 
-/**
- * A request to someone else's hostname. Internal names (docker service names,
- * localhost, bare IPs from health checks) are never custom: they are us.
- */
-export function isCustomHost(host: string | null | undefined): boolean {
+/** A docker service name, localhost or a bare IP: a caller on this machine, never a public site. */
+export function isInternalHost(host: string | null | undefined): boolean {
   const name = hostnameOf(host);
-  return name.includes(".") && !IP.test(name) && name !== "localhost" && !name.endsWith(".localhost") && !isPlatformHostname(name);
+  return !name.includes(".") || IP.test(name) || name === "localhost" || name.endsWith(".localhost");
+}
+
+/** A request to someone else's hostname. */
+export function isCustomHost(host: string | null | undefined): boolean {
+  return !isInternalHost(host) && !isPlatformHostname(hostnameOf(host));
 }
 
 const CUSTOM_HOST_PATHS = [
