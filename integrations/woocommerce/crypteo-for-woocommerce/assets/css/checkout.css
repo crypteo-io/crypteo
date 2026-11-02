@@ -1,0 +1,21 @@
+.crypteo-icon {
+	width: 24px;
+	height: 24px;
+	max-height: 24px;
+	vertical-align: middle;
+	border-radius: 6px;
+}
+
+.crypteo-blocks-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.crypteo-order-status {
+	padding: 12px 16px;
+	border-left: 4px solid #135ca4;
+	background: #f5f8fb;
+	color: #060f16;
+	border-radius: 4px;
+}
