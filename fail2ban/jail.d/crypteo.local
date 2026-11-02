@@ -1,0 +1,45 @@
+# Bans web probers at Cloudflare, not in nftables: every request reaches the
+# host from a Cloudflare edge, so a local firewall ban would block Cloudflare
+# (and real users), never the prober. nginx logs the real visitor IP
+# (restored from CF-Connecting-IP), which is what <HOST> matches.
+# A ban is a Cloudflare managed challenge, not a block: a script can't pass
+# it, a person who happens to share the IP (carrier NAT, office) clicks
+# through. The note has no spaces: fail2ban 1.0.2's unban looks the rule up
+# by its note in an unencoded URL, so "Fail2Ban <jail>" was never found
+# and every ban stayed at Cloudflare forever.
+# Installed copy holds a Cloudflare API token: root-owned, mode 640.
+# Setup and placeholders: fail2ban/README.md.
+
+# Dotfiles, cloud credentials, PHP/WordPress paths: never legitimate.
+[crypteo-scanner]
+enabled  = true
+filter   = nginx-scanner
+backend  = polling
+logpath  = /var/lib/docker/volumes/crypteo_nginx_logs/_data/access.log
+ignoreip = 127.0.0.1/8 ::1 172.16.0.0/12 HOST_IPS OWNER_IP
+findtime = 10m
+maxretry = 5
+bantime  = 1w
+bantime.increment = true
+bantime.maxtime = 4w
+cfzone   = ZONE_ID
+cftoken  = API_TOKEN
+action   = cloudflare-token[cfzone="%(cfzone)s", cftoken="%(cftoken)s", cfmode="managed_challenge", notes="Fail2Ban-%(__name__)s"]
+
+# API client errors (not 429). The monitor emails at 40 in 10 minutes; this
+# bans at 60. A short first ban (a merchant's broken integration recovers on
+# its own), doubling for repeat offenders up to a day.
+[crypteo-api-probe]
+enabled  = true
+filter   = nginx-api-probe
+backend  = polling
+logpath  = /var/lib/docker/volumes/crypteo_nginx_logs/_data/access.log
+ignoreip = 127.0.0.1/8 ::1 172.16.0.0/12 HOST_IPS OWNER_IP
+findtime = 10m
+maxretry = 60
+bantime  = 1h
+bantime.increment = true
+bantime.maxtime = 1d
+cfzone   = ZONE_ID
+cftoken  = API_TOKEN
+action   = cloudflare-token[cfzone="%(cfzone)s", cftoken="%(cftoken)s", cfmode="managed_challenge", notes="Fail2Ban-%(__name__)s"]

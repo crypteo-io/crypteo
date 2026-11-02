@@ -1,0 +1,27 @@
+node_modules
+.next
+.git
+.env*
+npm-debug.log
+yarn-debug.log*
+yarn-error.log*
+README.md
+Dockerfile
+.dockerignore
+
+# Secrets and data that must never be baked into an image. The Dockerfile's
+# `COPY . .` would otherwise ship the TLS private key and every database dump
+# (all merchant and payment data) inside a layer anyone with the image can read.
+# nginx gets the certificate via a read-only bind mount, and backups live on the
+# host, so nothing at build or run time needs these in the image.
+ssl/
+**/*.pem
+**/*.key
+postgres/backups/
+
+# Local-only notes and build/test leftovers.
+changelog/
+PAYMENT_DETECTION_FIX.txt
+coverage/
+tsconfig.tsbuildinfo
+**/.DS_Store

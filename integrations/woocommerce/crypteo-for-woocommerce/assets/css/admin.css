@@ -1,0 +1,26 @@
+.crypteo-admin-box {
+	max-width: 720px;
+	margin: 16px 0;
+	padding: 12px 16px;
+	border-left: 4px solid #5aa9f5;
+	background: linear-gradient(180deg, #1c2f41, #060f16);
+	color: #f1f5f9;
+	border-radius: 4px;
+}
+
+.crypteo-admin-box label {
+	display: block;
+	margin-bottom: 6px;
+	font-weight: 600;
+}
+
+.crypteo-admin-box input[readonly] {
+	background: #1e293b;
+	color: #5aa9f5;
+	border-color: #1e293b;
+}
+
+.crypteo-admin-box p {
+	margin: 8px 0 0;
+	color: #f1f5f9;
+}

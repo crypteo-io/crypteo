@@ -1,0 +1,336 @@
+@import "tailwindcss";
+
+/*
+ * Crypteo design tokens, taken from the Clavudkit template (navy primary,
+ * slate neutrals, sky backdrops). The dashboard and checkout were written
+ * against the inherited token names (neutral-*, brand, accent-*), so those
+ * names stay and point at the template's values.
+ */
+@theme inline {
+  /* Template palette */
+  --color-primary: #1c2f41;
+  --color-primary-deep: #060f16;
+  --color-sky: #135ca4;
+  --color-sky-soft: #5aa9f5;
+
+  --color-default-50: #f8fafc;
+  --color-default-100: #f1f5f9;
+  --color-default-200: #e2e8f0;
+  --color-default-300: #cbd5e1;
+  --color-default-400: #94a3b8;
+  --color-default-500: #64748b;
+  --color-default-600: #475569;
+  --color-default-700: #334155;
+  --color-default-800: #1e293b;
+  --color-default-900: #0f172a;
+  --color-default-950: #060f16;
+
+  /* Inherited names, template values */
+  --color-body-bg: #f5f8fb;
+  --color-surface-white: #ffffff;
+  --color-surface-light: #f8fafc;
+  --color-primary-text: #060f16;
+  --color-secondary-text: #64748b;
+  --color-muted-text: #94a3b8;
+
+  --color-brand: #135ca4;
+  --color-brand-accessible: #1c2f41;
+  --color-brand-accessible-dark: #060f16;
+
+  --color-accent-blue: #135ca4;
+  --color-accent-green: #16a34a;
+  --color-accent-orange: #ea7a1e;
+  --color-accent-red: #e5484d;
+
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #060f16;
+
+  /* Hosted checkout accent, themed per merchant: the --ck-* variables are set
+     on the checkout root by lib/branding.ts checkoutPaletteStyle(). */
+  --color-ck: var(--ck-accent, #1c2f41);
+  --color-ck-deep: var(--ck-accent-deep, #060f16);
+  --color-ck-ink: var(--ck-ink, #135ca4);
+  --color-on-ck: var(--ck-on, #ffffff);
+
+  --radius-pill: 999px;
+  --radius-card-xxl: 32px;
+  --radius-card-xl: 24px;
+  --radius-card-lg: 16px;
+  --radius-card-md: 12px;
+
+  --font-heading: var(--font-inter), "Inter", Arial, sans-serif;
+  --font-display: var(--font-inter), "Inter", Arial, sans-serif;
+  --font-body: var(--font-dm-sans), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --shadow-premium: 0 1px 2px rgba(6, 15, 22, 0.04), 0 4px 16px rgba(6, 15, 22, 0.04);
+  --shadow-card-hover: 0 12px 32px rgba(6, 15, 22, 0.08);
+  --shadow-nav: 0 4px 24px rgba(6, 15, 22, 0.05);
+  --shadow-aigocy-card: 0 1px 2px rgba(6, 15, 22, 0.06), 0 4px 12px rgba(6, 15, 22, 0.06);
+  --shadow-aigocy-dark: 0 1px 2px rgba(6, 15, 22, 0.2), 0 4px 12px rgba(6, 15, 22, 0.16);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-body-bg);
+    color: var(--color-default-600);
+    font-family: var(--font-body);
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--color-default-950);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-315 px-4 md:px-7.5;
+  }
+
+  /* Template card: a pale slate frame around a white inner panel. */
+  .frame {
+    @apply rounded-2xl border border-default-200 bg-linear-to-b from-default-100 to-transparent p-2.5;
+  }
+  .frame-inner {
+    @apply rounded-2xl border border-default-100 bg-white;
+  }
+
+  /* Template accordion / soft panel. */
+  .panel-soft {
+    @apply rounded-2xl border border-default-200 bg-linear-to-b from-default-100 to-transparent;
+  }
+
+  .icon-tile {
+    @apply inline-flex items-center justify-center rounded-xl border border-default-200 bg-linear-to-b from-default-100 to-transparent text-default-900;
+  }
+
+  .field {
+    @apply h-12.5 w-full rounded-xl border border-default-200 bg-white px-4 text-default-900 placeholder:text-default-400 transition-colors focus:border-primary focus:outline-none;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center justify-center gap-2.5 rounded-xl border border-default-950/10 bg-default-950/[0.03] px-4 py-2 text-sm font-medium text-default-950;
+  }
+
+}
+
+/* Template's rolling label on hover (two stacked copies of the text). */
+.roll {
+  @apply relative block overflow-hidden;
+}
+.roll > span {
+  @apply block transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)];
+}
+.roll > span + span {
+  @apply absolute inset-x-0 top-full;
+}
+.group:hover .roll > span {
+  transform: translateY(-100%);
+}
+
+@keyframes infinite-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+.infinite-scroll {
+  animation: infinite-scroll 60s linear infinite;
+  will-change: transform;
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .infinite-scroll,
+  .animate-float {
+    animation: none;
+  }
+  .group:hover .roll > span {
+    transform: none;
+  }
+}
+
+/* Long-form copy (terms, privacy, blog posts). */
+.prose-site {
+  @apply text-[17px] leading-[1.75] text-default-700;
+}
+.prose-site h2 {
+  @apply mt-12 mb-4 text-[28px];
+}
+.prose-site h3 {
+  @apply mt-8 mb-3 text-xl;
+}
+.prose-site p {
+  @apply my-5;
+}
+.prose-site ul {
+  @apply my-5 list-disc space-y-2 pl-6;
+}
+.prose-site ol {
+  @apply my-5 list-decimal space-y-2 pl-6;
+}
+.prose-site a {
+  @apply font-semibold text-sky underline underline-offset-2;
+}
+.prose-site strong {
+  @apply font-semibold text-default-900;
+}
+.prose-site blockquote {
+  @apply my-6 border-l-4 border-default-200 pl-5 italic text-default-600;
+}
+.prose-site code {
+  @apply rounded bg-default-100 px-1.5 py-0.5 font-mono text-[0.88em] text-default-900;
+}
+.prose-site pre {
+  @apply my-6 overflow-x-auto rounded-xl bg-default-950 p-5 text-sm text-default-100;
+}
+.prose-site pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+.prose-site img {
+  @apply my-8 rounded-2xl;
+}
+.prose-site hr {
+  @apply my-10 border-default-200;
+}
+.prose-site > :first-child {
+  @apply mt-0;
+}
+.prose-site .prose-table {
+  @apply my-6 overflow-x-auto;
+}
+.prose-site table {
+  @apply w-full border-collapse text-[15px];
+}
+.prose-site th,
+.prose-site td {
+  @apply border border-default-200 px-3 py-2 text-left;
+}
+.prose-site th {
+  @apply bg-default-50 font-semibold text-default-900;
+}
+
+/* ConfirmDialog (components/ui/ConfirmDialog.tsx) */
+@keyframes confirm-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes confirm-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[confirm-"] {
+    animation: none;
+  }
+}
+
+/* ====================== */
+/* DASHBOARD TABLES        */
+/* ====================== */
+/* Below lg each row of a .stack-table is a card and each cell is labelled
+   from its data-label (a seven-column table scrolled sideways, its first
+   columns off-screen). A cell without a label leads the card; data-actions
+   cells sit at its foot. Below lg because a tablet is too narrow for most tables.
+   Unlayered, so it wins over the cells' utilities (hidden xl:table-cell
+   columns show in the card). */
+@media (max-width: 1023px) {
+  table.stack-table,
+  .stack-table tbody,
+  .stack-table tr,
+  .stack-table td {
+    display: block;
+    width: 100%;
+  }
+  .stack-table thead {
+    display: none;
+  }
+  .stack-table tr {
+    padding: 16px 20px;
+  }
+  .stack-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: none;
+    padding: 5px 0;
+    text-align: right;
+    white-space: normal;
+  }
+  .stack-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-neutral-400);
+  }
+  .stack-table td:not([data-label]) {
+    display: block;
+    padding-bottom: 8px;
+    text-align: left;
+  }
+  .stack-table td:not([data-label])::before {
+    content: none;
+  }
+  .stack-table td[data-actions] {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 12px;
+  }
+  .stack-table td[colspan] {
+    display: block;
+    padding: 48px 0;
+    text-align: center;
+  }
+}

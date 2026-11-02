@@ -1,0 +1,248 @@
+# Shared build definition for every service that produces an app/worker image.
+# All of these tag images from the same `context: .`; if any of them omits the
+# NEXT_PUBLIC_TURNSTILE_SITE_KEY build arg, its build inlines an empty site key
+# and — since several services share the crypteo-app tag — can win the tag
+# race, shipping a bundle where Turnstile fails with `sitekey=""`. Keeping the
+# args identical everywhere makes every build of a given tag byte-identical.
+# Its own compose project, so containers, volumes and networks never collide
+# with other stacks on the same host.
+name: crypteo
+
+x-app-build: &app-build
+  context: .
+  args:
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+    APP_VERSION: ${APP_VERSION:-latest}
+
+services:
+  migrate:
+    build: *app-build
+    image: crypteo-app:${APP_VERSION:-latest}
+    entrypoint: /bin/sh
+    command: /app/migrations/run.sh
+    volumes:
+      - ./prisma/migrations:/app/prisma/migrations
+      - ./migrations:/app/migrations:ro
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
+  app:
+    build: *app-build
+    image: crypteo-app:${APP_VERSION:-latest}
+    # No published port: nginx reaches the app over the internal network, and a
+    # host mapping (0.0.0.0 by default) exposed Next directly to the internet,
+    # bypassing TLS, the rate limits and the Cloudflare real-IP handling.
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - internal
+    environment:
+      - AUTH_TRUST_HOST=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build: *app-build
+    image: crypteo-worker:${APP_VERSION:-latest}
+    command: npx tsx workers/scheduler.ts
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      app:
+        condition: service_started
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      # The bracket keeps the pattern from matching this healthcheck's own
+      # `sh -c` wrapper, whose command line contains the pattern text — the old
+      # `pgrep -f 'scheduler.ts'` always found itself and could never fail.
+      test: ["CMD-SHELL", "pgrep -f '[s]cheduler.ts' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./postgres/Dockerfile
+    image: crypteo-postgres:16-alpine-node
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/backups:/backups
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - .:/app:ro
+      - ./node_modules:/app/node_modules:ro
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    env_file: .env
+    # Internal only: the database needs no egress of its own (the `internal`
+    # bridge still NATs out for the shutdown notification).
+    networks:
+      - internal
+    # Loopback only — for `prisma migrate dev` from the host (README). A
+    # bare "5433:5432" binds 0.0.0.0 and Docker's iptables rules bypass ufw, so
+    # the database was reachable from the internet.
+    ports:
+      - "127.0.0.1:5434:5432"
+    expose:
+      - "5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Room for the shutdown email plus postgres' own fast shutdown.
+    stop_grace_period: 30s
+    # This shell is PID 1, so it must install the trap itself and forward the
+    # signal. The previous `trap ... && docker-entrypoint.sh postgres & wait`
+    # backgrounded the trap together with the server, leaving PID 1 without a
+    # handler: stop signals were dropped and postgres was SIGKILLed after the
+    # grace period, never sending the notification and skipping a clean
+    # shutdown. SIGINT is postgres' "fast" shutdown (the image's STOPSIGNAL);
+    # SIGTERM's "smart" mode would wait on the app's pooled connections.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        shutdown() {
+          kill -INT "$$pid" 2>/dev/null
+          (cd /app && npx tsx scripts/notify.ts PostgreSQL shutdown || true)
+        }
+        trap shutdown TERM INT QUIT
+        docker-entrypoint.sh postgres &
+        pid=$$!
+        wait "$$pid"; status=$$?
+        # A trapped signal interrupts `wait`; keep waiting until postgres exits.
+        while kill -0 "$$pid" 2>/dev/null; do wait "$$pid"; status=$$?; done
+        exit "$$status"
+
+  backup:
+    image: postgres:16-alpine
+    volumes:
+      # Directory mount, not ./postgres/backup.sh: a single-file bind mount pins
+      # the inode, and `git checkout` replaces the file with a new one, so the
+      # container kept running the old script after a deploy.
+      - ./postgres:/scripts:ro
+      - ./postgres/backups:/backups
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    entrypoint: /bin/sh
+    command: >
+      -c "echo '0 2 * * * /bin/sh /scripts/backup.sh >> /var/log/backup.log 2>&1' | crontab - && crond -f -l 2"
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    image: crypteo-nginx:alpine-node
+    # Listens on the host's 80/443. Behind another proxy on the same host, set
+    # NGINX_HTTP_BIND=127.0.0.1:8080 / NGINX_HTTPS_BIND=127.0.0.1:8443 and route
+    # your domain to it by server name.
+    ports:
+      - "${NGINX_HTTP_BIND:-80}:80"
+      - "${NGINX_HTTPS_BIND:-443}:443"
+    volumes:
+      # nginx.conf is a single-file mount, so its inode is pinned: deploy.sh
+      # force-recreates nginx so a checkout's new config is actually picked up.
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - ./ssl/cert.pem:/etc/ssl/certs/cert.pem:ro
+      - ./ssl/key.pem:/etc/ssl/private/key.pem:ro
+      - nginx_logs:/var/log/nginx
+      - .:/app:ro
+      - ./node_modules:/app/node_modules:ro
+    # Same PID-1 signal handling as postgres (see there). The image's
+    # STOPSIGNAL is SIGQUIT, nginx's graceful shutdown, so that is trapped too —
+    # the old trap listened only for TERM/INT and never fired on `docker stop`.
+    # Log files are created world-readable (0644) because the monitor reads
+    # access.log as a non-root user.
+    stop_grace_period: 30s
+    command:
+      - /bin/sh
+      - -c
+      - |
+        rm -f /var/log/nginx/access.log /var/log/nginx/error.log
+        touch /var/log/nginx/access.log /var/log/nginx/error.log
+        chmod 644 /var/log/nginx/access.log /var/log/nginx/error.log
+        shutdown() {
+          kill -QUIT "$$pid" 2>/dev/null
+          (cd /app && npx tsx scripts/notify.ts Nginx shutdown || true)
+        }
+        trap shutdown TERM INT QUIT
+        nginx -g 'daemon off;' &
+        pid=$$!
+        wait "$$pid"; status=$$?
+        while kill -0 "$$pid" 2>/dev/null; do wait "$$pid"; status=$$?; done
+        exit "$$status"
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - internal
+      - external
+    restart: unless-stopped
+    healthcheck:
+      # Any HTTP response from the TLS listener proves nginx is up with its
+      # certificate loaded (a 503 while the app restarts still counts — that is
+      # the app's health, checked separately). The old `|| exit 0` could never
+      # fail, and port 80 only ever answers with a redirect. The explicit user
+      # agent avoids the bad-bot map, which 403s curl.
+      test: ["CMD-SHELL", "curl -sk -o /dev/null -A docker-healthcheck https://localhost/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  monitor:
+    build: *app-build
+    command: npx tsx scripts/monitor.ts
+    env_file: .env
+    volumes:
+      - nginx_logs:/var/log/nginx:ro
+      # Read-only so the monitor can verify backup freshness/outcome but can
+      # never modify or delete a restore point.
+      - ./postgres/backups:/backups:ro
+    depends_on:
+      nginx:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+    networks:
+      - internal
+      - external
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ssl_certs:
+  nginx_logs:
+
+networks:
+  internal:
+    driver: bridge
+  external:
