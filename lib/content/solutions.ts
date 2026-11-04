@@ -594,7 +594,7 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             icon: Bell,
             title: "Paid messages in your chat",
-            body: "Get a message the moment a payment confirms. It's on for your private chat, and you can switch it on for any group.",
+            body: "The bot reports each paid payment to your chat. Every connection has its own switch, in the dashboard or with /reports: on for private chats, your call for groups and channels.",
           },
           {
             icon: Palette,

@@ -931,7 +931,7 @@ curl -i -X POST "http://localhost:3000/webhooks/crypteo" \\
     icon: Send,
     paragraphs: [
       "The Crypteo bot posts pay buttons in Telegram, with no code on your side. Under Payment links in the dashboard, choose Connect a chat to get a one-time code, valid for 15 minutes, with links for a private chat, a group or a channel. For a channel, add the bot as an admin and post the `/connect` message shown in the dashboard.",
-      "In a connected chat, `/pay 25 Blue hoodie` creates a payment link for 25 USD and posts a button to it. Payments through that button are ordinary payment link payments: they appear in your dashboard and send webhooks to your default endpoint. Paid messages are on for private chats, and you can switch them on for a group or channel in the dashboard.",
+      "In a connected chat, `/pay 25 Blue hoodie` creates a payment link for 25 USD and posts a button to it. Payments through that button are ordinary payment link payments: they appear in your dashboard and send webhooks to your default endpoint. The bot also reports every paid payment on your account to connected chats, whatever created it. Each connection has its own switch in the dashboard, or use `/reports on` and `/reports off` in the chat: reports start on for private chats and off for groups and channels.",
     ],
     notes: [
       "In a group, only its admins can use the bot.",

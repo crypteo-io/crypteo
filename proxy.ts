@@ -8,13 +8,18 @@ import {
   routeCustomHost,
   routeSite,
 } from "@/lib/host-routing";
+import { getToken } from "next-auth/jwt";
 import { withAuth, type NextRequestWithAuth } from "next-auth/middleware";
-import type { NextFetchEvent } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
+
+const SIGN_IN_PATH = "/login";
+
+const route = (req: NextRequest, role: string | undefined) =>
+  isAdminHost(req.headers.get("host")) ? routeAdminHost(req, role) : routeSite(req, role);
 
 const withSession = withAuth(
   function middleware(req) {
-    const role = req.nextauth.token?.role;
-    return isAdminHost(req.headers.get("host")) ? routeAdminHost(req, role) : routeSite(req, role);
+    return route(req, req.nextauth.token?.role);
   },
   {
     callbacks: {
@@ -31,7 +36,7 @@ const withSession = withAuth(
       },
     },
     pages: {
-      signIn: "/login",
+      signIn: SIGN_IN_PATH,
     },
   },
 );
@@ -40,8 +45,13 @@ const withSession = withAuth(
  * A merchant's own hostname is routed before next-auth runs: its middleware
  * passes its sign-in page straight through, which served /login there.
  */
-export default function proxy(req: NextRequestWithAuth, event: NextFetchEvent) {
+export default async function proxy(req: NextRequestWithAuth, event: NextFetchEvent) {
   if (isCustomHost(req.headers.get("host"))) return routeCustomHost(req);
+  // withAuth passes its sign-in page straight through too, so a signed-in
+  // visitor to /login never reached the routing that sends them on. A bad or
+  // expired cookie decodes to nothing and gets the login page. The target is
+  // fixed: callbackUrl is never followed here.
+  if (req.nextUrl.pathname === SIGN_IN_PATH) return route(req, (await getToken({ req }))?.role);
   return withSession(req, event);
 }
 

@@ -9,10 +9,11 @@ import { formatUsd } from "@/lib/billing/fee-schedule";
 import type { Overview } from "@/lib/dashboard-overview";
 import { formatAmount } from "@/lib/format";
 import type { EndpointHealth } from "@/lib/payment/webhook-health";
-import { AlertTriangle, ArrowRight, ChevronRight, Moon, ShieldCheck, Sun, Sunset, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronRight, Moon, ShieldCheck, Sun, Sunset, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { RelativeTime } from "./RelativeTime";
+import { useWebhookNotice } from "./useWebhookNotice";
 
 interface Props extends Overview {
   /** A merchant's own overview, or the admin's across every merchant. */
@@ -101,7 +102,7 @@ export function DashboardOverviewClient({
 
   return (
     <div className="space-y-8 pb-4">
-      {failingWebhooks.length > 0 && <FailingWebhooks endpoints={failingWebhooks} />}
+      <FailingWebhooks endpoints={failingWebhooks} />
 
       <section className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
@@ -260,6 +261,8 @@ export function DashboardOverviewClient({
 }
 
 function FailingWebhooks({ endpoints }: { endpoints: EndpointHealth[] }) {
+  const { show, dismiss } = useWebhookNotice(endpoints.map((e) => e.url));
+  if (!show) return null;
   const one = endpoints.length === 1;
   return (
     <section role="alert" className="flex gap-3 rounded-2xl border border-accent-red/20 bg-white/90 p-5 backdrop-blur-sm">
@@ -298,6 +301,15 @@ function FailingWebhooks({ endpoints }: { endpoints: EndpointHealth[] }) {
           </Link>
         </p>
       </div>
+      <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss this notice for 7 days"
+          title="Dismiss for 7 days"
+          className="-mt-1 -mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-default-500 transition-colors hover:bg-default-100 hover:text-default-950"
+        >
+          <X size={16} />
+        </button>
     </section>
   );
 }
