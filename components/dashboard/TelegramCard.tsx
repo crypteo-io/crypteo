@@ -3,10 +3,12 @@
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { apiRequest } from "@/lib/api-client";
 import { copyWithToast, errorMessage, toast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import { Bell, BellOff, Copy, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ActionButton } from "./ActionButton";
+import { TelegramGuide } from "./TelegramGuide";
 
 export interface TelegramChatRow {
   id: string;
@@ -66,7 +68,7 @@ export function TelegramCard({ chats }: { chats: TelegramChatRow[] }) {
           <div>
             <h2 className="font-heading text-[17px] font-semibold text-default-950">Telegram</h2>
             <p className="mt-0.5 text-[14px] text-default-500">
-              Add the bot to a chat, group or channel, then post a pay button with <code>/pay 25 Blue hoodie</code>.
+              Post pay buttons with <code>/pay 25 Blue hoodie</code> in a chat, group or channel, and get told in Telegram when payments are paid.
             </p>
           </div>
         </div>
@@ -104,8 +106,15 @@ export function TelegramCard({ chats }: { chats: TelegramChatRow[] }) {
         </div>
       )}
 
+      <TelegramGuide defaultOpen={chats.length === 0} />
+
       {chats.length > 0 && (
-        <ul className="mt-4 divide-y divide-default-100">
+        <div className="mt-5">
+        <h3 className="font-heading text-[15px] font-semibold text-default-950">Connected chats</h3>
+        <p className="mt-0.5 text-[13px] text-default-500">
+          Reports tell a chat about every paid payment on your account. Switch them per chat here, or with /reports on or /reports off in Telegram.
+        </p>
+        <ul className="mt-2 divide-y divide-default-100">
           {chats.map((chat) => (
             <li key={chat.id} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
@@ -116,13 +125,13 @@ export function TelegramCard({ chats }: { chats: TelegramChatRow[] }) {
                 <button
                   type="button"
                   disabled={busy}
-                  className={LINK_CLASS}
+                  className={cn(LINK_CLASS, chat.notifyPaid && "border-primary bg-primary text-white hover:bg-primary-deep")}
                   aria-pressed={chat.notifyPaid}
-                  aria-label={`Paid payment messages in ${chat.title}`}
-                  title={chat.notifyPaid ? "Paid messages are on" : "Paid messages are off"}
+                  aria-label={`Payment reports in ${chat.title}`}
                   onClick={() => toggle(chat)}
                 >
                   {chat.notifyPaid ? <Bell size={16} aria-hidden /> : <BellOff size={16} aria-hidden />}
+                  Reports {chat.notifyPaid ? "on" : "off"}
                 </button>
                 <button
                   type="button"
@@ -137,6 +146,7 @@ export function TelegramCard({ chats }: { chats: TelegramChatRow[] }) {
             </li>
           ))}
         </ul>
+        </div>
       )}
       </div>
     </section>

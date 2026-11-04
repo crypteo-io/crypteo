@@ -18,6 +18,7 @@ async function main() {
   await callTelegram("setMyCommands", {
     commands: [
       { command: "pay", description: "Post a payment button: /pay 25 Blue hoodie" },
+      { command: "reports", description: "Payment reports here: /reports on or /reports off" },
       { command: "disconnect", description: "Disconnect this chat" },
       { command: "help", description: "How the bot works" },
     ],

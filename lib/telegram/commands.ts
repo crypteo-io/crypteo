@@ -17,6 +17,15 @@ export function parseCommand(text: string | undefined, bot: string): BotCommand 
   return { name: match[1].toLowerCase(), args: (match[3] ?? "").trim() };
 }
 
+/** A button's price, always with cents: "$49.50", never "$49.5". */
+export const payPrice = (amount: number) => `$${amount.toFixed(2)}`;
+
+/** "/reports off" → false. Null when the argument is neither on nor off. */
+export function parseReportsArg(args: string): boolean | null {
+  const value = args.trim().toLowerCase();
+  return value === "on" ? true : value === "off" ? false : null;
+}
+
 export interface PayRequest {
   amount: number;
   title: string;

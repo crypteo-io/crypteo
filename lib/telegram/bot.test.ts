@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   merchant: { findFirst: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
-  telegramChat: { findUnique: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn(), findMany: vi.fn() },
+  telegramChat: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), deleteMany: vi.fn(), findMany: vi.fn() },
   paymentLink: { create: vi.fn() },
 }));
 const tg = vi.hoisted(() => ({ callTelegram: vi.fn(), sendMessage: vi.fn(), deleteMessage: vi.fn(), botUsername: () => "crypteo_bot" }));
@@ -146,6 +146,35 @@ describe("/pay", () => {
     limits.isOverLimit.mockResolvedValue(true);
     await handleUpdate(message("/pay 25"));
     expect(db.paymentLink.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("/reports", () => {
+  it("lets an admin switch reports for this chat", async () => {
+    member("administrator");
+    db.telegramChat.findUnique.mockResolvedValue({ notifyPaid: true });
+    await handleUpdate(message("/reports off"));
+    expect(db.telegramChat.update).toHaveBeenCalledWith({ where: { chatId: "-100" }, data: { notifyPaid: false } });
+  });
+
+  it("says which it is without an argument, and changes nothing", async () => {
+    db.telegramChat.findUnique.mockResolvedValue({ notifyPaid: false });
+    await handleUpdate(message("/reports", { id: 5, type: "private" }));
+    expect(db.telegramChat.update).not.toHaveBeenCalled();
+    expect(tg.sendMessage.mock.calls[0][1]).toContain("off");
+  });
+
+  it("ignores a group member who isn't an admin", async () => {
+    member("member");
+    await handleUpdate(message("/reports on"));
+    expect(db.telegramChat.update).not.toHaveBeenCalled();
+    expect(tg.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("changes nothing in a chat that isn't connected", async () => {
+    member("creator");
+    await handleUpdate(message("/reports on"));
+    expect(db.telegramChat.update).not.toHaveBeenCalled();
   });
 });
 

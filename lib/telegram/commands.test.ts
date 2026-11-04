@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_TITLE, parseCommand, parsePayArgs } from "./commands";
+import { MAX_TITLE, parseCommand, parsePayArgs, parseReportsArg, payPrice } from "./commands";
 
 describe("parseCommand", () => {
   it("reads a command and its arguments", () => {
@@ -14,6 +14,25 @@ describe("parseCommand", () => {
     expect(parseCommand("/pay@other_bot 5", "crypteo_bot")).toBeNull();
     expect(parseCommand("pay 5", "crypteo_bot")).toBeNull();
     expect(parseCommand(undefined, "crypteo_bot")).toBeNull();
+  });
+});
+
+describe("parseReportsArg", () => {
+  it("reads on and off, in any case", () => {
+    expect(parseReportsArg("on")).toBe(true);
+    expect(parseReportsArg(" OFF ")).toBe(false);
+  });
+
+  it("refuses anything else", () => {
+    expect(parseReportsArg("")).toBeNull();
+    expect(parseReportsArg("maybe")).toBeNull();
+  });
+});
+
+describe("payPrice", () => {
+  it("always shows cents", () => {
+    expect(payPrice(49.5)).toBe("$49.50");
+    expect(payPrice(25)).toBe("$25.00");
   });
 });
 

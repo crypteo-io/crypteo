@@ -1,14 +1,13 @@
 import { flagProbeInput } from "../abuse-signals";
 import { paymentLinkUrl, HOST_MERCHANT_SELECT } from "../custom-host";
 import { prisma } from "../db";
-import { formatAmount } from "../format";
 import { offerableWallets } from "../payment/wallets";
 import { isOverLimit } from "../rate-limit";
 import { HOUR_MS } from "../time";
 import crypto from "crypto";
 import { z } from "zod";
 import { botUsername, callTelegram, deleteMessage, sendMessage } from "./api";
-import { parseCommand, parsePayArgs } from "./commands";
+import { parseCommand, parsePayArgs, parseReportsArg, payPrice } from "./commands";
 
 // The Telegram bot: a merchant connects a chat with a one-time code from the
 // dashboard, then anyone allowed to run that chat posts pay buttons in it. A
@@ -41,6 +40,8 @@ const HELP = [
   "/pay 25 Blue hoodie",
   "",
   "Buyers tap it and pay your own wallet on your checkout.",
+  "",
+  "/reports on or /reports off: tell this chat when a payment is paid.",
   "/disconnect removes this chat. Connect one from Payment links in your Crypteo dashboard.",
 ].join("\n");
 
@@ -103,7 +104,8 @@ async function connect(message: Message, code: string): Promise<void> {
     create: { merchantId: merchant.id, chatId, kind: chat.type, title, notifyPaid: chat.type === "private" },
     update: { title, kind: chat.type },
   });
-  await sendMessage(chatId, `Connected to ${merchant.name}.\n\n${HELP}`);
+  const state = chat.type === "private" || existing?.notifyPaid ? "on" : "off";
+  await sendMessage(chatId, `Connected to ${merchant.name}. Payment reports are ${state} here.\n\n${HELP}`);
 }
 
 async function pay(message: Message, args: string): Promise<void> {
@@ -146,12 +148,31 @@ async function pay(message: Message, args: string): Promise<void> {
   });
   await flagProbeInput(merchant.id, "Payment link (Telegram)", { title: request.title });
 
-  const price = `$${formatAmount(request.amount, "usd")}`;
+  const price = payPrice(request.amount);
   await deleteMessage(chatId, message.message_id);
   await sendMessage(chatId, `${request.title}\n${price}`, {
     label: `Pay ${price} with crypto`,
     url: paymentLinkUrl(link.id, merchant),
   });
+}
+
+/** Turns this chat's paid-payment messages on or off, or says which it is. */
+async function reports(chatId: string, args: string): Promise<void> {
+  const chat = await prisma.telegramChat.findUnique({ where: { chatId }, select: { notifyPaid: true } });
+  if (!chat) {
+    await sendMessage(chatId, "This chat isn't connected.");
+    return;
+  }
+  const wanted = parseReportsArg(args);
+  if (wanted === null) {
+    await sendMessage(chatId, `Payment reports are ${chat.notifyPaid ? "on" : "off"} here. Use /reports on or /reports off.`);
+    return;
+  }
+  await prisma.telegramChat.update({ where: { chatId }, data: { notifyPaid: wanted } });
+  await sendMessage(
+    chatId,
+    wanted ? "Payment reports are on. This chat will hear about every paid payment." : "Payment reports are off for this chat.",
+  );
 }
 
 async function handleMessage(message: Message): Promise<void> {
@@ -166,6 +187,7 @@ async function handleMessage(message: Message): Promise<void> {
   if (!(await isChatAdmin(message))) return;
 
   if (command.name === "pay") return pay(message, command.args);
+  if (command.name === "reports") return reports(chatId, command.args);
   if (command.name === "disconnect") {
     const { count } = await prisma.telegramChat.deleteMany({ where: { chatId } });
     await sendMessage(chatId, count ? "Disconnected." : "This chat isn't connected.");
