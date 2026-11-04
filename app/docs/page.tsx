@@ -20,7 +20,7 @@ export const metadata: Metadata = pageMetadata({
 // Sidebar groups over the section ids in ./content.ts.
 const GROUPS: { title: string; ids: string[] }[] = [
   { title: "Getting started", ids: ["overview", "auth"] },
-  { title: "Payments", ids: ["create", "status", "statuses", "select-chain", "payment-links"] },
+  { title: "Payments", ids: ["create", "status", "statuses", "select-chain", "payment-links", "telegram"] },
   { title: "Webhooks", ids: ["webhooks", "verify", "handle"] },
   { title: "Reference", ids: ["errors", "test-mode", "tags-memos", "chains"] },
 ];

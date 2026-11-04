@@ -4,7 +4,7 @@ import { accountLinks, activeNavGroup, dashboardNav, tabGroups, type DashboardAr
 const AREAS: DashboardArea[] = ["merchant", "admin"];
 
 describe("dashboardNav", () => {
-  it("lists each page once, with a description for the group menu", () => {
+  it("lists each page once, with a description", () => {
     for (const area of AREAS) {
       const items = dashboardNav(area).flatMap((g) => g.items);
       expect(new Set(items.map((i) => i.href)).size).toBe(items.length);
@@ -37,9 +37,10 @@ describe("tabGroups", () => {
     expect(accountLinks("merchant").map((i) => i.name)).toEqual(["Settings", "Billing"]);
   });
 
-  it("shows admins the current group only", () => {
-    expect(labels("admin", "/merchants")).toEqual(["Merchants"]);
-    expect(labels("admin", "/blog")).toEqual([]);
+  it("shows admins the same way, with Settings in the account menu", () => {
+    expect(labels("admin", "/merchants")).toEqual(["Platform", "Merchants", "Content", "Setup"]);
+    expect(labels("admin", "/blog")).toEqual(["Platform", "Merchants", "Content", "Setup"]);
+    expect(labels("admin", "/settings")).toEqual([]);
     expect(accountLinks("admin").map((i) => i.href)).toEqual(["/settings"]);
   });
 });

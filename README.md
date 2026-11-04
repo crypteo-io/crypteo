@@ -1,10 +1,10 @@
-# Crypteo
+# Open Source Payment Gateway
 
-**Crypteo** (crypteo.io) is a non-custodial crypto payment gateway. Buyers pay the merchant's own wallet directly; Crypteo watches the chain, attributes each deposit to its checkout session and notifies the merchant. No processor balance to freeze, no exchange in the middle, no KYC.
+**Crypteo** (crypteo.io) is a self-hosted, non-custodial crypto payment gateway. Buyers pay the merchant's own wallet directly; Crypteo watches the chain, attributes each deposit to its checkout session and notifies the merchant. No processor balance to freeze, no exchange in the middle, no KYC.
 
 It is open source under the MIT licence: use the hosted service at [crypteo.io](https://crypteo.io), or run your own instance with Docker and pay no platform fee. Self-hosted, it is fully white label: your domain, your logo and colours, your support contact, and payment links on your merchants' own subdomains.
 
-The API reference lives at `/docs` on any instance (hosted: `https://crypteo.io/docs`). A WooCommerce plugin is in `integrations/woocommerce/crypteo-for-woocommerce/`; point its "API base URL" setting at your instance.
+The API reference lives at `/docs` on any instance (hosted: `https://crypteo.io/docs`). A WooCommerce plugin is in `integrations/woocommerce/crypteo-for-woocommerce/`: buyers can pay on the store's own site or on the hosted checkout. Point its "API base URL" setting at your instance.
 
 ---
 
@@ -136,6 +136,8 @@ npm run test:coverage # with coverage
 4. Start the stack, then create the first admin with `SEED_ALLOW_PRODUCTION=true` (see the seed note above).
 
 nginx listens on the host's 80/443; behind another proxy, set `NGINX_HTTP_BIND` / `NGINX_HTTPS_BIND` (see `docker-compose.yml`). Platform fees are off until an admin turns billing on, so your own merchants are never charged unless you choose to.
+
+**Telegram bot** (optional): merchants connect a chat, group or channel from Payment links and post pay buttons with `/pay 25 Blue hoodie`. Create a bot with @BotFather, set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_WEBHOOK_SECRET`, then run `docker compose exec app npx tsx scripts/telegram-setup.ts` once. Without them the feature stays hidden.
 
 **Merchant custom domains** (payment links on `pay.theirstore.com`): merchants add a TXT record to prove ownership and a CNAME to `CUSTOM_DOMAIN_TARGET` (default `domains.<your domain>`, a DNS-only record pointing at your server). Set `COMPOSE_PROFILES=custom-domains` to start Caddy (`caddy/Caddyfile`), which gets each verified hostname a Let's Encrypt certificate on demand. Caddy needs the host's 80/443, so move nginx to other ports (`NGINX_HTTPS_BIND=8443`) and reach your own domain on that port (for example a Cloudflare Origin Rule), or put your own edge proxy in front that asks `http://127.0.0.1:3010/api/custom-domains/allowed?domain=<host>` and forwards to the app's loopback port.
 

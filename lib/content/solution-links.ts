@@ -1,7 +1,7 @@
-// The six solution pages: names, paths and the one-line blurbs the navbar's
+// The solution pages: names, paths and the one-line blurbs the navbar's
 // Solutions menu and the footer show. Page copy is in ./solutions.ts.
 
-export const SOLUTION_KEYS = ["whiteLabel", "openSource", "api", "decentralised", "development", "wordpress"] as const;
+export const SOLUTION_KEYS = ["whiteLabel", "openSource", "api", "decentralised", "development", "wordpress", "paymentLinks", "telegram"] as const;
 export type SolutionKey = (typeof SOLUTION_KEYS)[number];
 
 export interface SolutionLink {
@@ -71,7 +71,21 @@ const LINKS: Record<SolutionKey, Omit<SolutionLink, "key" | "path">> = {
     label: "WordPress and WooCommerce",
     blurb: "A WooCommerce plugin for your store's checkout",
     description:
-      "WordPress crypto payment gateway: the Crypteo WooCommerce plugin takes BTC, ETH, USDT and more straight to your wallet, on classic or block checkout.",
+      "WordPress crypto payment gateway: the Crypteo WooCommerce plugin takes BTC, ETH, USDT and more straight to your wallet, on your own checkout page.",
+  },
+  paymentLinks: {
+    title: "Crypto Payment Links",
+    label: "Payment links",
+    blurb: "Get paid in crypto without building a checkout",
+    description:
+      "Crypto payment links you can share anywhere: set a price, send the link, get paid straight to your wallet. No code, no KYC, and your own domain if you want.",
+  },
+  telegram: {
+    title: "Crypto Payment Gateway for Telegram Bot",
+    label: "Telegram bot payments",
+    blurb: "Pay buttons in your Telegram groups and channels",
+    description:
+      "Crypto payment gateway for Telegram: add the Crypteo bot to a group or channel and post pay buttons. Buyers pay your own wallet, with no code to write.",
   },
 };
 

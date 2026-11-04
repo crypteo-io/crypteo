@@ -65,6 +65,16 @@ export const slotKey = (chain: string, token: string) => `${chain.toLowerCase()}
 
 const RANK = new Map(WALLET_ASSETS.flatMap((a) => a.slots).map((s, i) => [slotKey(s.chain, s.token), i]));
 
+/** "USDC" and "Solana (SPL)" for a pair, for lists outside the Wallets page. */
+export function slotLabel(chain: string, token: string): { asset: string; network: string } {
+  const key = slotKey(chain, token);
+  for (const asset of WALLET_ASSETS) {
+    const slot = asset.slots.find((s) => slotKey(s.chain, s.token) === key);
+    if (slot) return { asset: asset.name, network: slot.network };
+  }
+  return { asset: token.toUpperCase(), network: chain.toUpperCase() };
+}
+
 /** Sorts chain/token pairs into the Wallets page order; unknown pairs go last. */
 export function byWalletOrder<T extends { chain: string; token: string }>(pairs: readonly T[]): T[] {
   const rank = (p: T) => RANK.get(slotKey(p.chain, p.token)) ?? RANK.size;

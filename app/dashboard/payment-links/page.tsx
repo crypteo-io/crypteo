@@ -1,6 +1,8 @@
 import { CustomDomainCard } from "@/components/dashboard/CustomDomainCard";
 import { PaymentLinksClient } from "@/components/dashboard/PaymentLinksClient";
 import { cnameTarget, verificationName, verificationValue } from "@/lib/custom-domain";
+import { TelegramCard } from "@/components/dashboard/TelegramCard";
+import { telegramConfigured } from "@/lib/telegram/api";
 import { HOST_MERCHANT_SELECT, paymentLinkUrl } from "@/lib/custom-host";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -36,6 +38,11 @@ export default async function PaymentLinksPage() {
   const endpoints = await prisma.webhookEndpoint.findMany({
     where: { merchantId: session.user.id },
     select: { id: true, url: true, label: true },
+  });
+  const telegramChats = await prisma.telegramChat.findMany({
+    where: { merchantId: session.user.id },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, title: true, kind: true, notifyPaid: true },
   });
   const hostOf = (url: string) => {
     try {
@@ -82,6 +89,7 @@ export default async function PaymentLinksPage() {
     <PaymentLinksClient
       initialLinks={formattedLinks}
       renderedAt={nowMs()}
+      telegramCard={telegramConfigured() ? <TelegramCard chats={telegramChats} /> : null}
       domainCard={
         <CustomDomainCard
           cnameTarget={cnameTarget()}

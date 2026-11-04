@@ -3,17 +3,26 @@
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { isActiveNav, tabGroups, type DashboardArea } from "./nav-items";
 
 /** The dashboard's pages as a frosted tab strip over the sky header, groups side by side. */
 export function SectionTabs({ area }: { area: DashboardArea }) {
   const pathname = usePathname() ?? "";
   const groups = tabGroups(area, pathname);
+  const stripRef = useRef<HTMLElement>(null);
+
+  // On a phone the strip scrolls sideways: keep the current page's tab in view.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const tab = strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (strip && tab) strip.scrollLeft = tab.offsetLeft - (strip.clientWidth - tab.offsetWidth) / 2;
+  }, [pathname]);
+
   if (groups.length === 0) return null;
 
   return (
-    <nav aria-label="Sections" className="-mx-4 mb-8 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+    <nav ref={stripRef} aria-label="Sections" className="relative -mx-4 mb-8 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
       <ul className="inline-flex items-center gap-1 rounded-2xl border border-white/50 bg-white/40 p-1 backdrop-blur-sm">
         {groups.map((group, g) => (
           <Fragment key={group.label}>

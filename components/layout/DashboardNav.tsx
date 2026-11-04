@@ -3,12 +3,11 @@
 import { Logo } from "@/components/site/Logo";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { signOutHere } from "@/lib/sign-out";
-import { cn } from "@/lib/utils";
-import { ChevronDown, LogOut, Menu, Plus, Search, X } from "lucide-react";
+import { LogOut, Plus, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
-import { AREA_HOME, NAV_IN_TABS, accountLinks, activeNavGroup, dashboardNav, isActiveNav, type DashboardArea } from "./nav-items";
+import { AREA_HOME, accountLinks, type DashboardArea } from "./nav-items";
 import { NotificationBell } from "./NotificationBell";
 
 /** Closes a popover on an outside press or Escape. */
@@ -34,8 +33,7 @@ function useDismiss(open: boolean, ref: RefObject<HTMLElement | null>, close: ()
 
 /**
  * The dashboards' floating navbar, the landing page's in a dashboard role:
- * notifications and the account menu, plus for admins one menu per nav group
- * and a phone menu (merchants navigate with the tab strip).
+ * notifications and the account menu. Pages are reached from the tab strip.
  */
 export function DashboardNav({
   area,
@@ -45,20 +43,9 @@ export function DashboardNav({
   user: { name?: string | null; email?: string | null; role: string };
 }) {
   const merchant = area === "merchant";
-  const pathname = usePathname() ?? "";
-  const groups = NAV_IN_TABS[area] ? [] : dashboardNav(area);
-  const current = activeNavGroup(area, pathname);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const navRef = useRef<HTMLElement>(null);
-  const closeAll = () => {
-    setOpenGroup(null);
-    setMobileOpen(false);
-  };
-  useDismiss(openGroup !== null || mobileOpen, navRef, closeAll);
 
   return (
-    <header ref={navRef} className="container-site fixed inset-x-0 top-0 z-50">
+    <header className="container-site fixed inset-x-0 top-0 z-50">
       <div className="my-2.5 rounded-2xl bg-white/30 p-1.5 backdrop-blur-md md:my-4">
         <nav
           aria-label="Dashboard"
@@ -67,7 +54,6 @@ export function DashboardNav({
           <Link
             href={AREA_HOME[area]}
             aria-label={area === "admin" ? "Admin overview" : "Dashboard overview"}
-            onClick={closeAll}
             className="flex shrink-0 items-center gap-2 pr-2"
           >
             <Logo markClassName="size-7" className="[&>span:last-child]:text-xl" />
@@ -78,127 +64,22 @@ export function DashboardNav({
             )}
           </Link>
 
-          <ul className="hidden items-center lg:flex">
-            {groups.map((group) => {
-              const open = openGroup === group.label;
-              const active = current?.label === group.label;
-              return (
-                <li key={group.label} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setOpenGroup(open ? null : group.label)}
-                    aria-expanded={open}
-                    aria-haspopup="true"
-                    className={cn(
-                      "flex items-center gap-1 rounded-lg px-3.5 py-2.5 font-medium transition-colors hover:text-primary",
-                      active ? "text-primary" : "text-default-600",
-                    )}
-                  >
-                    {group.label}
-                    <ChevronDown size={15} className={cn("transition-transform", open && "rotate-180")} />
-                    {active && <span className="absolute inset-x-3.5 bottom-1 h-0.5 rounded-full bg-sky" aria-hidden />}
-                  </button>
-                  {open && (
-                    <div className="absolute top-full left-0 mt-3 w-80">
-                      <div className="frame bg-white/95 shadow-card-hover backdrop-blur">
-                        <ul className="frame-inner p-1.5">
-                          {group.items.map((item) => {
-                            const here = isActiveNav(area, pathname, item.href);
-                            return (
-                              <li key={item.href}>
-                                <Link
-                                  href={item.href}
-                                  onClick={closeAll}
-                                  aria-current={here ? "page" : undefined}
-                                  className={cn(
-                                    "flex items-start gap-3 rounded-xl p-3 transition-colors",
-                                    here ? "bg-default-50" : "hover:bg-default-50",
-                                  )}
-                                >
-                                  <span className={cn("icon-tile size-9 shrink-0", here && "border-primary bg-primary text-white from-primary")}>
-                                    <item.icon size={17} />
-                                  </span>
-                                  <span className="min-w-0">
-                                    <span className="block font-heading text-[15px] font-semibold text-default-950">{item.name}</span>
-                                    <span className="block text-[13px] text-default-500">{item.description}</span>
-                                  </span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            {merchant && <PaymentSearch onSearch={closeAll} />}
+            {merchant && <PaymentSearch />}
             <NotificationBell area={area} />
             {merchant && (
               <Link
                 href="/dashboard/payment-links/create"
                 aria-label="New payment link"
-                onClick={closeAll}
                 className="inline-flex size-10 items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-deep sm:w-auto sm:px-4"
               >
                 <Plus size={16} /> <span className="hidden sm:inline">New link</span>
               </Link>
             )}
             <AccountMenu area={area} user={user} />
-            {groups.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenGroup(null);
-                  setMobileOpen((v) => !v);
-                }}
-                aria-expanded={mobileOpen}
-                aria-controls="dashboard-mobile-menu"
-                aria-label={mobileOpen ? "Close menu" : "Open menu"}
-                className="inline-flex size-10 items-center justify-center rounded-lg text-default-900 hover:bg-default-100 lg:hidden"
-              >
-                {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-              </button>
-            )}
           </div>
         </nav>
 
-        {mobileOpen && (
-          <div
-            id="dashboard-mobile-menu"
-            className="mt-1.5 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-xl border border-default-100 bg-white p-2 lg:hidden"
-          >
-            {groups.map((group) => (
-              <div key={group.label} className="py-1">
-                <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-default-400">
-                  {group.label}
-                </p>
-                {group.items.map((item) => {
-                  const here = isActiveNav(area, pathname, item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={closeAll}
-                      aria-current={here ? "page" : undefined}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-4 py-2.5 font-medium",
-                        here ? "bg-primary/5 text-primary" : "text-default-700 hover:bg-default-50",
-                      )}
-                    >
-                      <item.icon size={17} className={here ? "text-primary" : "text-default-400"} />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </header>
   );
@@ -209,7 +90,7 @@ export function DashboardNav({
  * external id), so the navbar's search is a shortcut into it. Collapsed to an
  * icon until it's wanted.
  */
-function PaymentSearch({ onSearch }: { onSearch: () => void }) {
+function PaymentSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -219,7 +100,6 @@ function PaymentSearch({ onSearch }: { onSearch: () => void }) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const q = query.trim();
-    onSearch();
     setOpen(false);
     router.push(q ? `/dashboard/payments?search=${encodeURIComponent(q)}` : "/dashboard/payments");
   };

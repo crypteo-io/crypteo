@@ -94,7 +94,17 @@ export const OG_CARDS = {
   wordpress: {
     eyebrow: "WooCommerce plugin",
     title: "WordPress crypto payment gateway",
-    subtitle: "A WooCommerce plugin that takes crypto straight to your wallet, on classic or block checkout.",
+    subtitle: "A WooCommerce plugin that takes crypto straight to your wallet, on your own checkout page.",
+  },
+  paymentLinks: {
+    eyebrow: "Payment links",
+    title: "Crypto payment links",
+    subtitle: "Set a price, share the link, and get paid straight to your own wallet.",
+  },
+  telegram: {
+    eyebrow: "Telegram bot",
+    title: "Crypto payment gateway for Telegram bot",
+    subtitle: "Add the bot to a group or channel and post pay buttons in seconds.",
   },
   terms: {
     eyebrow: "Legal",

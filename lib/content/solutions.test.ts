@@ -25,6 +25,8 @@ describe("solution pages", () => {
       "/decentralised-crypto-payment-gateway",
       "/crypto-payment-gateway-development-and-integration",
       "/wordpress-crypto-payment-gateway",
+      "/crypto-payment-links",
+      "/crypto-payment-gateway-for-telegram-bot",
     ]);
     expect(solutionSlug("A (B) C")).toBe("a-c");
     expect(solutionHeading("Open Source Crypto Payment Gateway (Self Hosted)")).toBe("Open Source Crypto Payment Gateway");

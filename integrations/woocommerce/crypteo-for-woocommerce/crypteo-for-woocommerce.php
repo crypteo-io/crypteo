@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:          Crypteo for WooCommerce
+ * Plugin Name:          Crypto Payment Gateway for WooCommerce (by Crypteo)
  * Plugin URI:           https://crypteo.io
- * Description:          Non-custodial crypto payments for WooCommerce. Buyers pay your own wallets directly, through crypteo.io or your own self-hosted Crypteo.
- * Version:              1.0.0
+ * Description:          Accept Bitcoin, USDT, USDC, ETH and more in WooCommerce on your own checkout page, paid straight to your wallet. Non-custodial, open source, no KYC.
+ * Version:              1.1.0
  * Author:               Crypteo
  * Author URI:           https://crypteo.io
  * License:              GPL-2.0-or-later
@@ -18,8 +18,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CRYPTEO_WC_VERSION', '1.0.0' );
+define( 'CRYPTEO_WC_VERSION', '1.1.0' );
 define( 'CRYPTEO_WC_FILE', __FILE__ );
+define( 'CRYPTEO_WC_SITE', 'https://crypteo.io' );
 define( 'CRYPTEO_WC_DEFAULT_API_BASE', 'https://crypteo.io' );
 
 add_action(
@@ -42,6 +43,7 @@ function crypteo_wc_init() {
 	require_once __DIR__ . '/includes/class-crypteo-api.php';
 	require_once __DIR__ . '/includes/class-crypteo-gateway.php';
 	require_once __DIR__ . '/includes/class-crypteo-webhook.php';
+	require_once __DIR__ . '/includes/class-crypteo-onsite.php';
 
 	add_filter(
 		'woocommerce_payment_gateways',
@@ -52,6 +54,7 @@ function crypteo_wc_init() {
 	);
 
 	add_action( 'rest_api_init', array( 'Crypteo_Webhook', 'register_route' ) );
+	add_action( 'rest_api_init', array( 'Crypteo_Onsite', 'register_routes' ) );
 
 	add_action(
 		'woocommerce_blocks_payment_method_type_registration',
@@ -85,7 +88,11 @@ function crypteo_wc_init() {
 		'plugin_action_links_' . plugin_basename( __FILE__ ),
 		static function ( $links ) {
 			$url = admin_url( 'admin.php?page=wc-settings&tab=checkout&section=' . Crypteo_Gateway::ID );
-			array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Settings', 'crypteo-for-woocommerce' ) . '</a>' );
+			array_unshift(
+				$links,
+				'<a href="' . esc_url( $url ) . '">' . esc_html__( 'Settings', 'crypteo-for-woocommerce' ) . '</a>',
+				'<a href="' . esc_url( CRYPTEO_WC_SITE ) . '" target="_blank" rel="noopener">crypteo.io</a>'
+			);
 			return $links;
 		}
 	);

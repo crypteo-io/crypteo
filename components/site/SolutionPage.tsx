@@ -175,7 +175,7 @@ function MoreSolutions({ current }: { current: SolutionKey }) {
     <section className="pb-4">
       <div className="container-site">
         <h2 className="mb-6 text-2xl md:text-[28px]">More ways to use Crypteo</h2>
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {SOLUTIONS.filter((s) => s.key !== current).map((s) => (
             <li key={s.key}>
               <Link

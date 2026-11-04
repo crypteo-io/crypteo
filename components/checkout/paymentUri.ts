@@ -104,3 +104,13 @@ export function buildPaymentUri({
 
   return addr;
 }
+
+/**
+ * What the checkout QR encodes with the amount included. XRP has no URI scheme
+ * wallets agree on, so its QR is the bare address and the destination tag is
+ * shown (and must be entered) separately.
+ */
+export function paymentQrValue(input: PaymentUriInput): string {
+  if (input.chain?.toLowerCase() === "xrp") return input.address ?? "";
+  return buildPaymentUri(input);
+}

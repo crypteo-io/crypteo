@@ -15,7 +15,7 @@ import { pricingTiers } from "@/lib/content/pricing";
 import { solutionLink } from "@/lib/content/solution-links";
 import { hostingComparison } from "@/lib/content/solutions";
 import { organizationJsonLd, pageMetadata, websiteJsonLd } from "@/lib/seo";
-import { SOURCE_REPO_URL } from "@/lib/site-links";
+import { SOURCE_REPO_URL, WORKSPACE_URL } from "@/lib/site-links";
 import {
   ArrowRight,
   BadgeCheck,
@@ -239,6 +239,13 @@ function OpenSourceWhiteLabel({ fees }: { fees: FeeCopy }) {
                   View the source
                 </ButtonAnchor>
               </div>
+              <p className="mt-5 text-sm font-normal text-white/70">
+                Self-host on the cloud provider you prefer, such as{" "}
+                <a href={WORKSPACE_URL} target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-white">
+                  Workspace.org
+                </a>
+                .
+              </p>
             </div>
             <HostingComparison rows={hostingComparison(fees)} />
           </div>

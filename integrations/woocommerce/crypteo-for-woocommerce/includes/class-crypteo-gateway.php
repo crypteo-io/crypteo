@@ -12,6 +12,9 @@ class Crypteo_Gateway extends WC_Payment_Gateway {
 	const META_AMOUNT       = '_crypteo_amount';
 	const META_EVENTS       = '_crypteo_events';
 
+	const FLOW_ONSITE = 'onsite';
+	const FLOW_HOSTED = 'hosted';
+
 	const KEY_PATTERN = '/^(crypt|test)_[A-Za-z0-9]+$/';
 
 	public function __construct() {
@@ -31,6 +34,7 @@ class Crypteo_Gateway extends WC_Payment_Gateway {
 
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'woocommerce_thankyou_' . $this->id, array( $this, 'thankyou_page' ) );
+		add_action( 'woocommerce_receipt_' . $this->id, array( 'Crypteo_Onsite', 'render' ) );
 	}
 
 	public function init_form_fields() {
@@ -52,8 +56,18 @@ class Crypteo_Gateway extends WC_Payment_Gateway {
 				'title'       => __( 'Description', 'crypteo-for-woocommerce' ),
 				'type'        => 'textarea',
 				'description' => __( 'Shown under the title at checkout.', 'crypteo-for-woocommerce' ),
-				'default'     => __( 'Pay with BTC, ETH, USDC, USDT and more, straight to the shop\'s own wallet. You pick the network on the next page.', 'crypteo-for-woocommerce' ),
+				'default'     => __( 'Pay with BTC, ETH, USDC, USDT and more, straight to the shop\'s own wallet. You pick the network in the next step.', 'crypteo-for-woocommerce' ),
 				'desc_tip'    => true,
+			),
+			'checkout_flow'  => array(
+				'title'       => __( 'Checkout', 'crypteo-for-woocommerce' ),
+				'type'        => 'select',
+				'description' => __( 'On your site, buyers pick a coin and pay on your own order page. Hosted sends them to your branded Crypteo checkout and back.', 'crypteo-for-woocommerce' ),
+				'default'     => self::FLOW_ONSITE,
+				'options'     => array(
+					self::FLOW_ONSITE => __( 'On your site', 'crypteo-for-woocommerce' ),
+					self::FLOW_HOSTED => __( 'Hosted by Crypteo', 'crypteo-for-woocommerce' ),
+				),
 			),
 			'api_base_url'   => array(
 				'title'       => __( 'API base URL', 'crypteo-for-woocommerce' ),
@@ -161,7 +175,7 @@ class Crypteo_Gateway extends WC_Payment_Gateway {
 		if ( $open ) {
 			return array(
 				'result'   => 'success',
-				'redirect' => $open,
+				'redirect' => $this->destination( $order, $open ),
 			);
 		}
 
@@ -206,8 +220,13 @@ class Crypteo_Gateway extends WC_Payment_Gateway {
 
 		return array(
 			'result'   => 'success',
-			'redirect' => $checkout_url,
+			'redirect' => $this->destination( $order, $checkout_url ),
 		);
+	}
+
+	/** Where the buyer pays: the order's own pay page, or the hosted checkout. */
+	private function destination( WC_Order $order, $checkout_url ) {
+		return self::FLOW_HOSTED === $this->get_option( 'checkout_flow', self::FLOW_ONSITE ) ? $checkout_url : $order->get_checkout_payment_url( true );
 	}
 
 	/**

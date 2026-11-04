@@ -163,7 +163,7 @@ class Crypteo_Webhook {
 		return in_array( $payment_id, Crypteo_Gateway::meta_list( $order, Crypteo_Gateway::META_PAYMENT_IDS ), true ) ? $order : null;
 	}
 
-	private static function gateway() {
+	public static function gateway() {
 		$gateways = WC()->payment_gateways() ? WC()->payment_gateways()->payment_gateways() : array();
 		return isset( $gateways[ Crypteo_Gateway::ID ] ) ? $gateways[ Crypteo_Gateway::ID ] : null;
 	}

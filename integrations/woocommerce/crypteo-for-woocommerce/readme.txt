@@ -1,29 +1,32 @@
-=== Crypteo for WooCommerce ===
+=== Crypto Payment Gateway for WooCommerce (by Crypteo) ===
 Contributors: crypteo
-Tags: crypto, non-custodial, bitcoin, usdt, woocommerce
+Tags: crypto payment gateway, bitcoin, usdt, woocommerce, cryptocurrency
 Requires at least: 6.2
 Tested up to: 6.8
 Requires PHP: 7.4
 WC requires at least: 8.0
 WC tested up to: 10.3
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Non-custodial crypto payments for WooCommerce. Works with crypteo.io or your own self-hosted Crypteo.
+Take Bitcoin, USDT, USDC and ETH in WooCommerce on your own checkout page, paid straight to your wallet. Non-custodial and open source.
 
 == Description ==
 
-Crypteo is an open source, non-custodial payment gateway. Buyers pay a plain wallet address that belongs to you, not a pooled deposit address, so there is no processor in the middle that can freeze a balance or refuse your business. Crypteo only sees public addresses: no private keys, no seed phrases, no withdrawals to approve.
+This plugin adds a crypto payment gateway to WooCommerce without handing your money to a processor. Buyers pay your own wallet address, Crypteo watches the chain, and the order updates when the payment confirms. There is no account approval and no KYC, and nobody can freeze a balance, because there is no balance held anywhere.
 
-Use the hosted service at crypteo.io, or run Crypteo on your own server and point the plugin at it. The checkout is white label, so buyers see your shop rather than a payment company.
+The checkout can stay on your store. After placing an order the buyer picks a coin on your own order page, sees the address, amount and QR code there, and lands on your thank-you page once it's paid. If you prefer, switch to the hosted checkout, a white label page with your logo and colours that can run on your own domain.
+
+Accepted coins: Bitcoin, Ethereum, USDC and USDT on several networks, Solana, BNB, Polygon, Tron, XRP, Dogecoin, Zcash and Cardano. You only offer the ones you've added a wallet for.
+
+Fees are low and tiered by monthly volume, and you can avoid them entirely: Crypteo is open source, so you can self-host it on your own server and point this plugin at your instance with one setting. See [crypteo.io](https://crypteo.io) for pricing and the source code.
 
 How it works in your store:
 
-* At checkout the buyer picks "Pay with crypto" and goes to the Crypteo checkout.
-* They choose a network (BTC, ETH, SOL, USDC, USDT and more on 10 networks) and pay your wallet directly.
-* Crypteo sends a signed webhook on every status change. The plugin checks the signature, reads the payment back from your Crypteo API and only then updates the order.
-* Once the payment is paid, the buyer is sent back to your order confirmation page.
+* The buyer chooses "Pay with crypto" and places the order.
+* They pay from any wallet or exchange, on your site or on the hosted checkout.
+* Crypteo sends a signed webhook to your store on every status change. The plugin checks the signature, reads the payment back from the Crypteo API and updates the order. It never takes the webhook's word for money.
 * Paid in full (or overpaid) completes the order. A short payment puts it on hold with a note. A checkout that expires with nothing paid marks it failed.
 
 Works with the classic checkout and the block checkout, and with High-Performance Order Storage.
@@ -31,8 +34,8 @@ Works with the classic checkout and the block checkout, and with High-Performanc
 = Things to know =
 
 * Checkouts are priced in US dollars, so the gateway only shows while your store currency is USD.
-* Your store must be reachable from the internet for webhooks to arrive.
-* A self-hosted instance must be served over https. Plain http is accepted for localhost only, for development.
+* Your store must be reachable from the internet for webhooks to arrive. A site on localhost won't receive them.
+* Self-hosting? Set the API base URL to your own Crypteo. It must use https (plain http is only allowed for localhost). The source code is at https://github.com/crypteo-io/crypteo.
 
 == Installation ==
 
@@ -66,19 +69,31 @@ The order goes on hold with a note showing what arrived. If the buyer tops up th
 
 The order goes on hold for you to review. Late funds are not credited automatically.
 
+= Can the checkout stay on my WordPress site? =
+
+Yes, that's the default. Buyers choose a coin and pay on your order page, so they never leave your store. Under Checkout in the plugin settings you can switch to the hosted page instead.
+
 = Does the buyer come back to my store after paying? =
 
-Yes. Once the payment is paid, the Crypteo checkout sends the buyer to your order confirmation page. If they leave the checkout or it expires, they land on the order's payment page and can try again. Your confirmation page only shows the order's current status: it never marks anything paid. That only happens through the signed webhook.
+Yes. On the hosted checkout, once the payment is paid the buyer is sent to your order confirmation page. If they leave the checkout or it expires, they land on the order's payment page and can try again. Your confirmation page only shows the order's current status: it never marks anything paid. That only happens through the signed webhook.
 
 == External services ==
 
-This plugin connects to the Crypteo instance set as the API base URL (https://crypteo.io by default) to create payments and read their status. When a buyer chooses Crypteo at checkout, the plugin sends the order total in USD, the order id, number and key, the buyer's billing email, your store's webhook address and the order's confirmation and payment page addresses. When a webhook arrives, the plugin reads that payment back from the same API.
+This plugin connects to the Crypteo instance set as the API base URL (https://crypteo.io by default) to create payments and read their status. When a buyer chooses Crypteo at checkout, the plugin sends the order total in USD, the order id, number and key, the buyer's billing email, your store's webhook address and the order's confirmation and payment page addresses. While a buyer pays on your site, the plugin reads the payment's status from the same API and sends the coin they picked. When a webhook arrives, the plugin reads that payment back from the same API.
 
 For crypteo.io:
 Terms: https://crypteo.io/terms
 Privacy policy: https://crypteo.io/privacy
 
+== Third-party libraries ==
+
+assets/js/qrcode.js is qrcode-generator 1.4.4 by Kazuhiko Arase, MIT licence (https://github.com/kazuhikoarase/qrcode-generator). It draws the payment QR code in the buyer's browser.
+
 == Changelog ==
+
+= 1.1.0 =
+* The checkout can now stay on your site, and does by default.
+* New plugin name and description.
 
 = 1.0.0 =
 * First release.
