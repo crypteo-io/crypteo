@@ -130,6 +130,11 @@ export async function rateLimitScoped(
   return retryAfter === null ? null : tooManyRequests(retryAfter);
 }
 
+/** A limit on something other than a client IP, such as a Telegram chat. True when over it. */
+export async function isOverLimit(key: string, limit: number, windowMs = WINDOW_MS): Promise<boolean> {
+  return (await hitBucket(key, limit, windowMs)) !== null;
+}
+
 /**
  * The same scoped per-IP limit for server components, which have the request
  * headers (next/headers) but no NextRequest and can't return a 429. Returns

@@ -9,6 +9,7 @@ import {
   Network,
   RefreshCw,
   Rocket,
+  Send,
   ShieldCheck,
   Terminal,
   Webhook,
@@ -303,7 +304,7 @@ curl -X POST "${BASE}/payments" \\
     icon: CheckCircle,
     paragraphs: [
       "`GET /payments/{id}` returns the payment's current state. Use it to confirm a webhook before acting on it, or as a fallback if your webhook endpoint was down.",
-      "`expectedAmount` and `receivedAmount` are in units of the payment's token once a network is chosen. For a flexible payment that hasn't been picked yet, `expectedAmount` is still the USD price and `availableWallets` lists the networks the buyer can choose.",
+      "`expectedAmount` and `receivedAmount` are in units of the payment's token once a network is chosen. For a flexible payment that hasn't been picked yet, `expectedAmount` is still the USD price and `availableWallets` lists the networks the buyer can choose, in your Wallets page order, each with its `asset` and `network` names. It stays filled while a pending buyer can still switch.",
       "If you poll instead of using webhooks, poll every 15–30 seconds while the payment is open. Stop as soon as it reaches a final status (see Payment statuses), and never poll a payment forever: a session lasts one hour, plus up to 24 hours for an underpaid top-up.",
     ],
     tables: [
@@ -320,6 +321,9 @@ curl -X POST "${BASE}/payments" \\
           ["receivedAmount", "number | null", "Amount received on-chain, in token units."],
           ["txHash", "string | null", "On-chain transaction ID, when resolved."],
           ["walletAddress", "string | null", "Address the buyer was asked to pay."],
+          ["amountDue, amountDueText", "number, string", "What the buyer has to send now, as a number and ready to show: the shortfall once a partial deposit has landed."],
+          ["xrpDestinationTag, solMemoString", "string | null", "The tag or memo a buyer attaches on XRP or Solana."],
+          ["paymentUri", "string", "What to encode in a QR code: a wallet payment link with the amount, or the bare address on XRP. Empty until a network is chosen."],
           ["expiresAt, createdAt, updatedAt", "string", "ISO 8601 timestamps."],
           ["isTest", "boolean", "Created with a test key."],
         ],
@@ -851,6 +855,7 @@ curl -i -X POST "http://localhost:3000/webhooks/crypteo" \\
     paragraphs: [
       "Only needed if you build your own checkout instead of using `checkoutUrl`. `PATCH /payments/{id}` locks a flexible payment to one network: we price the USD amount in that token and return the address and amount the buyer must send.",
       "A payment can be re-pointed only while it is `pending`, nothing has been received, and it was created without a chain. Otherwise the request is refused with 400 or 409. Show the buyer `walletAddress` and `amount` exactly, plus `xrpDestinationTag` or `solMemoString` when present.",
+      "`GET /payments/{id}` gives you the rest of a checkout on your own page: `availableWallets` for the coin list, `amountDueText` for the figure to show, and `paymentUri` for the QR code. Keep your API key on your server and fulfil orders from the webhook, never from what the browser reports.",
     ],
     examples: [
       {
@@ -918,6 +923,20 @@ curl -i -X POST "http://localhost:3000/webhooks/crypteo" \\
   }
 }`,
       },
+    ],
+  },
+  {
+    id: "telegram",
+    title: "Telegram bot",
+    icon: Send,
+    paragraphs: [
+      "The Crypteo bot posts pay buttons in Telegram, with no code on your side. Under Payment links in the dashboard, choose Connect a chat to get a one-time code, valid for 15 minutes, with links for a private chat, a group or a channel. For a channel, add the bot as an admin and post the `/connect` message shown in the dashboard.",
+      "In a connected chat, `/pay 25 Blue hoodie` creates a payment link for 25 USD and posts a button to it. Payments through that button are ordinary payment link payments: they appear in your dashboard and send webhooks to your default endpoint. Paid messages are on for private chats, and you can switch them on for a group or channel in the dashboard.",
+    ],
+    notes: [
+      "In a group, only its admins can use the bot.",
+      "Make the bot an admin in a group, or write `/pay@yourbot`. Telegram may otherwise keep plain commands from it.",
+      "Self-hosting: create a bot with BotFather, set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` and `TELEGRAM_WEBHOOK_SECRET`, then run `scripts/telegram-setup.ts` once.",
     ],
   },
   {

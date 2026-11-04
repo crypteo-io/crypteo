@@ -19,7 +19,6 @@ export interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
-  /** One line under the name in the navbar's group menu. */
   description: string;
 }
 
@@ -31,8 +30,8 @@ export interface NavGroup {
 }
 
 /**
- * Each dashboard's grouped navigation: the navbar's group menus, the mobile
- * menu and the section tabs above each page. Admin pages are also gated by
+ * Each dashboard's grouped navigation: the section tabs above each page and
+ * the account menu. Admin pages are also gated by
  * the admin host (proxy.ts), adminPageSession and requireAdmin on their APIs.
  */
 export function dashboardNav(area: DashboardArea): NavGroup[] {
@@ -63,8 +62,12 @@ export function dashboardNav(area: DashboardArea): NavGroup[] {
         items: [
           { name: "Fee wallets", href: "/wallets", icon: Wallet, description: "Where merchants pay their fees" },
           { name: "Proxies", href: "/proxies", icon: Network, description: "Outbound proxies for chain and price reads" },
-          { name: "Settings", href: "/settings", icon: Settings, description: "Your admin account and security" },
         ],
+      },
+      {
+        label: "Account",
+        account: true,
+        items: [{ name: "Settings", href: "/settings", icon: Settings, description: "Your admin account and security" }],
       },
     ];
   }
@@ -107,20 +110,16 @@ export function activeNavGroup(area: DashboardArea, pathname: string): NavGroup 
   return dashboardNav(area).find((g) => g.items.some((i) => isActiveNav(area, pathname, i.href))) ?? null;
 }
 
-/** Merchants move between pages with the tab strip; admins, with more pages, keep the navbar menus. */
-export const NAV_IN_TABS: Record<DashboardArea, boolean> = { merchant: true, admin: false };
-
-/** The tab strip's groups: every tabbed group, or only the current one on an account page and for admins. */
+/** The tab strip's groups: every tabbed group, or only the current one on an account page. */
 export function tabGroups(area: DashboardArea, pathname: string): NavGroup[] {
   const current = activeNavGroup(area, pathname);
-  if (NAV_IN_TABS[area] && !current?.account) return dashboardNav(area).filter((g) => !g.account);
-  return current && current.items.length > 1 ? [current] : [];
+  if (!current?.account) return dashboardNav(area).filter((g) => !g.account);
+  return current.items.length > 1 ? [current] : [];
 }
 
 /** The account menu's links. */
 export function accountLinks(area: DashboardArea): NavItem[] {
-  const groups = dashboardNav(area);
-  return NAV_IN_TABS[area]
-    ? groups.filter((g) => g.account).flatMap((g) => g.items)
-    : groups.flatMap((g) => g.items).filter((i) => i.href === "/settings");
+  return dashboardNav(area)
+    .filter((g) => g.account)
+    .flatMap((g) => g.items);
 }

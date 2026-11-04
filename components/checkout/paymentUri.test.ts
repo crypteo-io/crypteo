@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPaymentUri } from "./paymentUri";
+import { buildPaymentUri, paymentQrValue } from "./paymentUri";
 
 const ETH_ADDR = "0x1111111111111111111111111111111111111111";
 
@@ -110,5 +110,15 @@ describe("buildPaymentUri", () => {
     expect(
       buildPaymentUri({ chain: "ada", token: "ada", address: "addr1x", amount: 10 }),
     ).toBe("addr1x");
+  });
+});
+
+describe("paymentQrValue", () => {
+  it("is the bare address on XRP, which has no URI wallets agree on", () => {
+    expect(paymentQrValue({ chain: "xrp", token: "xrp", address: "rAddr", amount: 5 })).toBe("rAddr");
+  });
+
+  it("is the payment URI elsewhere", () => {
+    expect(paymentQrValue({ chain: "sol", token: "sol", address: "abc", amount: 1.5, solMemo: "m1" })).toBe("solana:abc?amount=1.5&memo=m1");
   });
 });

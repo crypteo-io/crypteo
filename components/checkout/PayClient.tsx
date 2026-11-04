@@ -6,7 +6,7 @@ import { CheckoutLayout, SummaryRow } from "@/components/checkout/CheckoutLayout
 import { CheckoutSteps } from "@/components/checkout/CheckoutSteps";
 import { CopyButton, CopyField, DetailList, ResultIcon } from "@/components/checkout/CopyField";
 import { CountdownBar } from "@/components/checkout/CountdownBar";
-import { buildPaymentUri } from "@/components/checkout/paymentUri";
+import { paymentQrValue } from "@/components/checkout/paymentUri";
 import { SessionExpired } from "@/components/checkout/SessionExpired";
 import { useReturnCountdown } from "@/components/checkout/useReturnCountdown";
 import { CheckoutPayment } from "@/components/checkout/types";
@@ -234,16 +234,13 @@ export function PayClient({
   const amountDue = isUnderpaid ? remaining : payment.expectedAmount;
   const amountDueText = formatAmount(amountDue, payment.token);
 
-  // XRP has no URI scheme wallets agree on, so its QR is always the bare
-  // address and the destination tag is shown (and must be entered) separately.
-  const isXrp = payment.chain?.toLowerCase() === "xrp";
-
   // "Address" mode is the bare address and nothing else — it's what a buyer
   // pastes into an exchange withdrawal form. "With Amount" is a chain-standard
   // payment URI (BIP21 / EIP-681 / Solana Pay).
+  const isXrp = payment.chain?.toLowerCase() === "xrp";
   const qrValue =
-    qrIncludeAmount && !isXrp
-      ? buildPaymentUri({
+    qrIncludeAmount
+      ? paymentQrValue({
           chain: payment.chain,
           token: payment.token,
           address: payment.walletAddress,

@@ -16,6 +16,9 @@ import {
   usdBase,
 } from "@/lib/payment/assign";
 import { generateSessionIdentifiers } from "@/lib/payment/identifiers";
+import { paymentQrValue } from "@/components/checkout/paymentUri";
+import { formatAmount } from "@/lib/format";
+import { byWalletOrder, slotLabel } from "@/lib/wallet-slots";
 
 // Well-formed placeholder per chain, so a test checkout shows an address of
 // the right shape (and a QR that parses) for the network the buyer picked.
@@ -27,6 +30,13 @@ const TEST_MOCK_ADDRESSES: Record<string, string> = {
   tron: "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb",
   doge: "DDogepartyxxxxxxxxxxxxxxxxxxw1dfzr",
 };
+
+/** What the buyer still has to send: the shortfall once a partial deposit has landed. */
+function dueNow(payment: { status: string; expectedAmount: number; receivedAmount: number | null }): number {
+  return payment.status === "underpaid"
+    ? Math.max(payment.expectedAmount - (payment.receivedAmount ?? 0), 0)
+    : payment.expectedAmount;
+}
 
 export async function GET(
   req: NextRequest,
@@ -55,19 +65,22 @@ export async function GET(
     return NextResponse.json({ error: "Payment not found" }, { status: 404 });
   }
 
-  // If chain is not selected, return available wallets for this merchant
+  // While the buyer can still pick or change the network, the wallets they
+  // can pick from.
   let availableWallets: AvailableWallet[] = [];
-  if (!payment.chain) {
+  if (!payment.chain || payment.status === "pending") {
     const rawWallets = await prisma.wallet.findMany({
       where: {
         merchantId: payment.merchantId,
         isActive: true,
       },
     });
-    availableWallets = offerableWallets(rawWallets).map(
-      ({ chain, token, address }) => ({ chain, token, address }),
+    availableWallets = byWalletOrder(offerableWallets(rawWallets)).map(
+      ({ chain, token, address }) => ({ chain, token, address, ...slotLabel(chain, token) }),
     );
   }
+
+  const amountDue = dueNow(payment);
 
   return NextResponse.json({
     success: true,
@@ -81,6 +94,17 @@ export async function GET(
       receivedAmount: payment.receivedAmount,
       txHash: payment.txHash,
       walletAddress: payment.walletAddress,
+      xrpDestinationTag: payment.xrpDestinationTag,
+      solMemoString: payment.solMemoString,
+      amountDue,
+      amountDueText: formatAmount(amountDue, payment.token),
+      paymentUri: paymentQrValue({
+        chain: payment.chain,
+        token: payment.token,
+        address: payment.walletAddress,
+        amount: amountDue,
+        solMemo: payment.solMemoString,
+      }),
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
       externalId: payment.externalId,

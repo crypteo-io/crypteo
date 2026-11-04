@@ -5,6 +5,7 @@ import { formatAmount } from "../format";
 import { sendEmail } from "../mailer";
 import { isSafeWebhookUrl, postWebhook } from "../security";
 import { notifyMerchant } from "../notifications";
+import { notifyTelegramPaid } from "../telegram/bot";
 import { isPaidStatus } from "./status";
 import {
   paymentSuccessHtml,
@@ -176,6 +177,7 @@ export async function notifyPaymentOutcome(payment: Payment): Promise<void> {
         body: `A payment${ref} is paid in full${payment.status === "overpaid" ? " (the buyer sent more than requested)" : ""}.`,
         link,
       });
+      if (!payment.isTest) await notifyTelegramPaid(payment.merchantId, `Payment received: ${received}${ref}`);
       return;
     case "underpaid":
       await notifyMerchant(payment.merchantId, {

@@ -19,10 +19,12 @@ export function PaymentLinksClient({
   initialLinks,
   renderedAt,
   domainCard,
+  telegramCard,
 }: {
   initialLinks: PaymentLink[];
   /** The custom domain card, rendered on the server's data. */
   domainCard: ReactNode;
+  telegramCard: ReactNode;
   // Server clock at render time (ms). Expiry is judged against it rather than
   // the browser clock so the first client render matches the server HTML —
   // reading `new Date()` here mismatched at the expiry boundary or whenever
@@ -324,6 +326,7 @@ export function PaymentLinksClient({
       )}
 
       <div className="animate-up">{domainCard}</div>
+      {telegramCard && <div className="animate-up">{telegramCard}</div>}
     </div>
   );
 }

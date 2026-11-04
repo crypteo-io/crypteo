@@ -55,6 +55,8 @@ model Merchant {
   // once the TXT record proves they own it (lib/custom-domain.ts).
   customDomain           String?   @unique
   customDomainToken      String?
+  telegramCodeHash       String?   @unique
+  telegramCodeExpiresAt  DateTime?
   customDomainVerifiedAt DateTime?
   // Set while a platform fee invoice is overdue (lib/billing/statements.ts):
   // no checkout can be bound to a network. The merchant still signs in, to pay.
@@ -72,6 +74,7 @@ model Merchant {
   apiKeys             ApiKey[]
   payments            Payment[]
   paymentLinks        PaymentLink[]
+  telegramChats       TelegramChat[]
   wallets             Wallet[]
   blogPosts           BlogPost[]
   webhookEndpoints    WebhookEndpoint[]
@@ -239,6 +242,22 @@ model PaymentLink {
 
   merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   payments Payment[]
+
+  @@index([merchantId])
+}
+
+// A Telegram chat connected to a merchant (lib/telegram/bot.ts). The id is a
+// string because channel and supergroup ids don't fit a 32-bit integer.
+model TelegramChat {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  merchantId String
+  chatId     String   @unique
+  kind       String
+  title      String
+  notifyPaid Boolean  @default(false)
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@index([merchantId])
 }

@@ -9,6 +9,7 @@ import {
   Eye,
   FlaskConical,
   GitBranch,
+  Bell,
   Globe,
   ImageIcon,
   KeyRound,
@@ -16,20 +17,24 @@ import {
   Network,
   Palette,
   PiggyBank,
+  Link2,
+  Megaphone,
   Plug,
   Server,
+  Send,
   ShieldCheck,
   Store,
   Terminal,
   UserPlus,
+  Timer,
   Users,
   Wallet,
   Webhook,
 } from "lucide-react";
 import type { FaqItem } from "./faq";
-import type { SolutionKey } from "./solution-links";
+import { solutionLink, type SolutionKey } from "./solution-links";
 
-// Copy for the six solution pages (components/site/SolutionPage.tsx). Built
+// Copy for the solution pages (components/site/SolutionPage.tsx). Built
 // per request because some of it prints the billed fee schedule. Copy only
 // claims what the product does, and each page's FAQ asks its own questions.
 
@@ -422,7 +427,7 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
       return {
         eyebrow: "WooCommerce plugin",
         subtitle:
-          "Add crypto to your WooCommerce store with the Crypteo plugin. Buyers choose crypto at checkout, pay your wallet directly, and the order is marked paid once the payment confirms.",
+          "Add crypto to your WooCommerce store with the Crypteo plugin. Buyers pay your wallet directly, right on your own site, and the order is marked paid once the payment confirms.",
         primary: { label: "Download the plugin", href: WOOCOMMERCE_PLUGIN_PATH, plain: true },
         secondary: { label: "Create an account", href: "/register" },
         featuresTitle: "A payment method like any other",
@@ -436,6 +441,11 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             icon: ShieldCheck,
             title: "Orders change only on proof",
             body: "Each webhook's signature is checked, then the payment is read back from the Crypteo API before the order moves. A forged request completes nothing.",
+          },
+          {
+            icon: Store,
+            title: "The checkout stays on your site",
+            body: "Buyers pick a coin and pay on your own order page, so they never leave your store. Prefer a branded hosted page? It's one setting.",
           },
           {
             icon: Server,
@@ -453,7 +463,7 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
               { title: "Create an API key and a signing secret", body: "Create a live API key under API keys, and set a webhook signing secret in Settings, Webhooks." },
               { title: "Install the plugin", body: "Download the zip, then in WordPress go to Plugins, Add New, Upload Plugin. Choose the file, install and activate." },
               { title: "Connect it", body: "Open WooCommerce, Settings, Payments, enable Crypteo and paste the key and secret. Leave the address on crypteo.io or enter your own instance." },
-              { title: "Place a test order", body: "Try it with a test key first: the checkout shows a simulate button, so you can watch the order turn paid without sending funds." },
+              { title: "Place a test order", body: "Try it with a test key first: the test checkout has a simulate button, so you can click through a payment without sending funds." },
             ],
           },
         ],
@@ -464,7 +474,11 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           },
           {
             q: "Which coins can my WooCommerce customers pay with?",
-            a: "Any network you've added a wallet for, from Bitcoin and Ethereum to USDT on Tron. Shoppers choose crypto in your store, then pick the coin on the Crypteo checkout.",
+            a: "Any network you've added a wallet for, from Bitcoin and Ethereum to USDT on Tron. Shoppers choose crypto in your store, then pick the coin on your order page.",
+          },
+          {
+            q: "Does the buyer stay on my WordPress site?",
+            a: "Yes, by default. The address, amount and QR code show on your own order page and the buyer lands on your thank-you page once it's paid. The API key stays on your server the whole time.",
           },
           {
             q: "What happens to the order if the buyer underpays?",
@@ -472,6 +486,154 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           },
         ],
         ctaTitle: "Take crypto on your WooCommerce store",
+      };
+
+    case "paymentLinks":
+      return {
+        eyebrow: "Payment links",
+        subtitle:
+          "Sell something in a DM, invoice a client or add a pay button to your bio. Set a price, share the link, and the money lands in your own wallet.",
+        primary: { label: "Create a payment link", href: "/register" },
+        secondary: { label: "Try the checkout", href: "/checkout-demo" },
+        featuresTitle: "Everything a link needs, nothing to build",
+        features: [
+          {
+            icon: Link2,
+            title: "One link, many buyers",
+            body: "Each visit opens its own checkout, so the same link can sit in your bio for months and every payment is tracked on its own.",
+          },
+          {
+            icon: Timer,
+            title: "Limits when you want them",
+            body: "Cap how many payments a link accepts or set a date it stops working. Handy for a limited drop or a one-off invoice.",
+          },
+          {
+            icon: Globe,
+            title: "On your own domain",
+            body: "Point a subdomain at Crypteo and links open on something like pay.yourstore.com, with your logo and colour on the checkout.",
+          },
+          {
+            icon: Wallet,
+            title: "Paid straight to you",
+            body: "Buyers pay your wallet directly. There's no balance to withdraw and no account review before your first sale.",
+          },
+          {
+            icon: Webhook,
+            title: "Plugs into what you run",
+            body: "Links can send signed webhooks like any API payment, so a sale can update your own system without a line of checkout code.",
+          },
+          {
+            icon: Send,
+            title: "Post them on Telegram",
+            body: "The Crypteo bot turns a price into a pay button in your Telegram group or channel.",
+          },
+        ],
+        sections: [
+          {
+            kind: "steps",
+            title: "Your first link takes about two minutes",
+            subtitle: "All you need is a wallet address.",
+            steps: [
+              { title: "Add a wallet", body: "Sign up with an email address and paste the addresses you want to be paid into." },
+              { title: "Create the link", body: "Give it a title and a USD price. Pin it to one coin if you like, or let the buyer choose." },
+              { title: "Share it", body: "Send it in a chat, an email, an invoice or anywhere else a link fits." },
+              { title: "Get paid", body: "You get an email the moment a payment confirms, and it shows up in your dashboard." },
+            ],
+          },
+        ],
+        faq: [
+          {
+            q: "Do crypto payment links expire?",
+            a: "Only if you set a date. Each buyer gets a checkout that stays open for an hour, but the link itself keeps working until you turn it off or it reaches its limit.",
+          },
+          {
+            q: "What does the buyer need to pay a link?",
+            a: "Any wallet or exchange account holding one of the coins you accept. They don't sign up for anything.",
+          },
+          {
+            q: "Can I create payment links without coding?",
+            a: "Yes, they're made in the dashboard. Developers can also create them through the API.",
+          },
+          {
+            q: "What does a payment link cost?",
+            a: `The same as any other payment: ${fees.range} of monthly volume on hosted Crypteo, and nothing to create or keep a link.`,
+          },
+        ],
+        ctaTitle: "Send your first crypto payment link today",
+      };
+
+    case "telegram":
+      return {
+        eyebrow: "Telegram bot",
+        subtitle:
+          "Sell inside the chats you already run. Add the Crypteo bot to a group or channel, type a price, and it posts a pay button your members can tap.",
+        primary: { label: "Connect Telegram", href: "/register" },
+        secondary: { label: "See payment links", href: solutionLink("paymentLinks").path },
+        featuresTitle: "Crypto payments where your community already is",
+        features: [
+          {
+            icon: Users,
+            title: "Add it to a group or channel",
+            body: "The bot joins as a third party, like any other Telegram bot. Connect a private chat, a group, a channel, or several at once.",
+          },
+          {
+            icon: Megaphone,
+            title: "One command, one button",
+            body: "Type /pay 25 Blue hoodie and the bot replaces your message with a pay button anyone in the chat can tap.",
+          },
+          {
+            icon: ShieldCheck,
+            title: "Only admins can use it",
+            body: "In a group, only its admins can post buttons or connect the bot. Everyone else's commands are ignored.",
+          },
+          {
+            icon: Wallet,
+            title: "Paid to your own wallet",
+            body: "A button opens your normal checkout. The bot never touches the money, and it holds no keys.",
+          },
+          {
+            icon: Bell,
+            title: "Paid messages in your chat",
+            body: "Get a message the moment a payment confirms. It's on for your private chat, and you can switch it on for any group.",
+          },
+          {
+            icon: Palette,
+            title: "Your branding on the checkout",
+            body: "Buttons open with your logo and colour, and on your own domain if you've connected one.",
+          },
+        ],
+        sections: [
+          {
+            kind: "steps",
+            title: "Set it up in a few minutes",
+            subtitle: "No code, and nothing to host.",
+            steps: [
+              { title: "Create your account", body: "Sign up and add the wallets you want to be paid into." },
+              { title: "Connect a chat", body: "Open Payment links in the dashboard and choose Connect a chat. You get a link for a private chat, a group or a channel." },
+              { title: "Add the bot", body: "Follow the link and pick the chat. For a channel, make the bot an admin and post the one-time code it gives you." },
+              { title: "Post a button", body: "Type /pay followed by a USD price and a title. That's the whole thing." },
+            ],
+          },
+        ],
+        faq: [
+          {
+            q: "Can I add the bot to a Telegram channel?",
+            a: "Yes. Add it as an admin so it can post, then send the /connect message from your dashboard in the channel. The bot removes the message and is ready for /pay.",
+          },
+          {
+            q: "Can other members create payment buttons in my group?",
+            a: "No. The bot checks that whoever sends a command is an admin of the group, and ignores everyone else.",
+          },
+          {
+            q: "Which coins can Telegram buyers pay with?",
+            a: "Every coin you've added a wallet for. The button opens the normal checkout, where they choose one.",
+          },
+          {
+            q: "Does the Telegram bot work on a self-hosted Crypteo?",
+            a: "Yes. Create your own bot with BotFather, add its token to your environment and run the setup script.",
+          },
+        ],
+        ctaTitle: "Start taking crypto on Telegram",
       };
   }
 }

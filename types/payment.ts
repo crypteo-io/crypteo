@@ -52,6 +52,9 @@ export interface AvailableWallet {
   token: string;
   address: string;
   xrpTag?: string | null;
+  /** Display names, on the public API. */
+  asset?: string;
+  network?: string;
 }
 
 export interface WebhookLog {

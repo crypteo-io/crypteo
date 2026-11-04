@@ -23,7 +23,33 @@ class Crypteo_API {
 		return $this->request( 'GET', '/payments/' . rawurlencode( $payment_id ) );
 	}
 
+	/** The payment plus the coins the buyer can still choose from, as `coins`. */
+	public function get_checkout( $payment_id ) {
+		$data = $this->send( 'GET', '/payments/' . rawurlencode( $payment_id ) );
+		if ( is_wp_error( $data ) ) {
+			return $data;
+		}
+		$coins = isset( $data['availableWallets'] ) && is_array( $data['availableWallets'] ) ? $data['availableWallets'] : array();
+		return array_merge( $data['payment'], array( 'coins' => $coins ) );
+	}
+
+	public function select_coin( $payment_id, $chain, $token ) {
+		return $this->request(
+			'PATCH',
+			'/payments/' . rawurlencode( $payment_id ),
+			array(
+				'chain' => $chain,
+				'token' => $token,
+			)
+		);
+	}
+
 	private function request( $method, $path, $body = null ) {
+		$data = $this->send( $method, $path, $body );
+		return is_wp_error( $data ) ? $data : $data['payment'];
+	}
+
+	private function send( $method, $path, $body = null ) {
 		$args = array(
 			'method'      => $method,
 			'timeout'     => 20,
@@ -51,6 +77,6 @@ class Crypteo_API {
 			return new WP_Error( 'crypteo_api', sprintf( '%s %s returned HTTP %d: %s', $method, $path, $status, $error ), array( 'status' => $status ) );
 		}
 
-		return $data['payment'];
+		return $data;
 	}
 }
