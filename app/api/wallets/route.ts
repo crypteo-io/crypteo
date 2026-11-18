@@ -4,7 +4,10 @@ import { isSupportedPair } from "@/lib/chains/registry";
 import { prisma } from "@/lib/db";
 import { maskAddress, notifyAccountSecurityChange } from "@/lib/mailer";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { nowDate, nowMs } from "@/lib/time";
 import { verifyChallenge } from "@/lib/two-factor";
+import { walletCodeRequired, walletSlot } from "@/lib/wallet-change";
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -125,8 +128,21 @@ export async function POST(req: NextRequest) {
 
   // Where buyers' money goes changes only with the account's second factor
   // (POST /api/wallets/verification), so a stolen session alone can't redirect
-  // payments. Enabling or disabling a saved address needs none.
-  if (addressChanged || tagChanged) {
+  // payments. A slot's first address, enabling and disabling need none, and
+  // one accepted code covers the next CHANGE_WINDOW_MS (lib/wallet-change.ts).
+  const slot = walletSlot(chain, token);
+  const changed = addressChanged || tagChanged;
+  const usedBefore = merchant.walletSlotsUsed.includes(slot);
+  const needsCode = walletCodeRequired({
+    changed,
+    occupied: !!existing,
+    usedBefore,
+    verifiedAt: merchant.walletChangeVerifiedAt,
+    revokedAt: merchant.sessionsRevokedAt,
+    passwordChangedAt: merchant.passwordChangedAt,
+    now: nowMs(),
+  });
+  if (needsCode) {
     if (!code) {
       return NextResponse.json(
         { error: "Enter the verification code to confirm this change.", codeRequired: true },
@@ -139,28 +155,41 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    await prisma.merchant.update({
+      where: { id: merchant.id },
+      data: { walletChangeVerifiedAt: nowDate() },
+    });
   }
 
-  const wallet = await prisma.wallet.upsert({
-    where: {
-      merchantId_chain_token: { merchantId: session.user.id, chain, token },
-    },
-    update: { address, isActive, xrpTag: tagValue },
-    create: {
-      merchantId: session.user.id,
-      chain,
-      token,
-      address,
-      isActive,
-      xrpTag: tagValue,
-    },
-  });
+  const data = { address, isActive, xrpTag: tagValue };
+  let wallet;
+  try {
+    [wallet] = await prisma.$transaction([
+      // A slot's first address was cleared without a code because the slot
+      // was empty, so it is only ever created: if another request filled it
+      // meanwhile, this one is refused rather than overwriting it.
+      existing
+        ? prisma.wallet.update({ where: { id: existing.id }, data })
+        : prisma.wallet.create({ data: { ...data, merchantId: merchant.id, chain, token } }),
+      ...(usedBefore
+        ? []
+        : [prisma.merchant.update({ where: { id: merchant.id }, data: { walletSlotsUsed: { push: slot } } })]),
+    ]);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json(
+        { error: "This wallet was just saved elsewhere. Reload the page and try again." },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 
   // A changed address (or XRP destination tag, which picks the account at a
   // shared/exchange address) redirects where buyers' money goes — the first
   // thing a stolen session would do. Tell the owner. Not awaited: a mail
   // outage must not block or fail the save.
-  if (addressChanged || tagChanged) {
+  if (changed) {
     const details = [
       { label: "Network", value: `${chain.toUpperCase()} / ${token.toUpperCase()}` },
       { label: "New address", value: maskAddress(address) },

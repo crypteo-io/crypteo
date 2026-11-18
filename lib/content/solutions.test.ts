@@ -45,6 +45,12 @@ describe("solution pages", () => {
     for (const s of SOLUTIONS) expect(s.description.length, s.key).toBeLessThanOrEqual(160);
   });
 
+  it("answer at least five questions each", () => {
+    for (const k of SOLUTION_KEYS) expect(solutionContent(k, fees).faq.length, k).toBeGreaterThanOrEqual(5);
+    expect(homeFaq(fees).length).toBeGreaterThanOrEqual(5);
+    expect(pricingFaq(fees).length).toBeGreaterThanOrEqual(5);
+  });
+
   it("ask questions no other page asks", () => {
     const questions = [
       ...SOLUTION_KEYS.flatMap((k) => solutionContent(k, fees).faq),

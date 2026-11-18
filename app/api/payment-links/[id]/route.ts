@@ -1,3 +1,4 @@
+import { noteForeignRecord } from "@/lib/account-risk";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -22,6 +23,7 @@ export async function GET(
     });
 
     if (!link || link.merchantId !== session.user.id) {
+      await noteForeignRecord(session.user.id, "payment link", link);
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
@@ -63,6 +65,7 @@ export async function PATCH(
     // Check ownership
     const existing = await prisma.paymentLink.findUnique({ where: { id } });
     if (!existing || existing.merchantId !== session.user.id) {
+      await noteForeignRecord(session.user.id, "payment link", existing);
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
@@ -100,6 +103,7 @@ export async function DELETE(
     // Check ownership
     const existing = await prisma.paymentLink.findUnique({ where: { id } });
     if (!existing || existing.merchantId !== session.user.id) {
+      await noteForeignRecord(session.user.id, "payment link", existing);
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

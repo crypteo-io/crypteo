@@ -5,6 +5,8 @@ import {
   isScannerHit,
   isScannerRequest,
   parseAccessLine,
+  injectionKind,
+  InjectionTally,
   ProbeWindow,
   ScannerTally,
   type AccessEntry,
@@ -18,6 +20,7 @@ const entry = (over: Partial<AccessEntry> = {}): AccessEntry => ({
   ts: Date.UTC(2026, 9, 23, 17, 0, 0),
   method: "POST",
   path: "/api/auth/verify/resend",
+  target: over.path ?? "/api/auth/verify/resend",
   status: 404,
   ...over,
 });
@@ -29,6 +32,7 @@ describe("parseAccessLine", () => {
       ts: Date.UTC(2026, 9, 23, 17, 13, 54),
       method: "POST",
       path: "/api/auth/verify/resend",
+      target: "/api/auth/verify/resend",
       status: 404,
     });
   });
@@ -120,5 +124,54 @@ describe("scanner requests", () => {
     t.add(entry());
     expect(t.take()).toEqual({ requests: 3, ips: 2 });
     expect(t.take()).toEqual({ requests: 0, ips: 0 });
+  });
+});
+
+// Lines as the 2026-11-15 prober sent them, one IP per request.
+const line = (ip: string, request: string, status = 401) =>
+  `${ip} - - [15/Nov/2026:12:52:54 +0000] "${request} HTTP/1.1" ${status} 35 "https://crypteo.io/dashboard" "Mozilla/5.0"`;
+
+describe("injectionKind", () => {
+  it("names the payload in an API URL, decoded", () => {
+    const cases: [string, string][] = [
+      ["GET /api/payments?search=%27%3B%20SELECT%20pg_sleep%286%29--", "SQL injection"],
+      ["GET /api/payments?search=1%3B%20WAITFOR%20DELAY%20%270%3A0%3A6%27--", "SQL injection"],
+      ["GET /api/payments/c%27%2BSLEEP%283%29%2B%27", "SQL injection"],
+      ["GET /api/payments/cmpay0000000000000000test%20AND%201%3D1", "SQL injection"],
+      ["GET /api/payments?search=1%20OR%201=1", "SQL injection"],
+      ["GET /api/payments/x%2527%20OR%20%25271%2527%3D%25271", "SQL injection"],
+    ];
+    for (const [request, kind] of cases) {
+      const e = parseAccessLine(line("203.0.113.242", request));
+      expect(e && injectionKind(e), request).toBe(kind);
+    }
+  });
+
+  it("ignores ordinary API traffic, bare quote fuzzing and payloads aimed at the site root", () => {
+    for (const request of [
+      "GET /api/payments?page=1&limit=50",
+      "GET /api/payments/cmpay0000000000000000test%27",
+      "GET /?q=UNION+SELECT+ALL+FROM+information_schema+AND+%22+or+SLEEP(5)+or+%22",
+      "GET /api/payments?search=O%27Brien%27s%20shop",
+    ]) {
+      const e = parseAccessLine(line("203.0.113.9", request, 200));
+      expect(e && injectionKind(e), request).toBeNull();
+    }
+  });
+});
+
+describe("InjectionTally", () => {
+  it("counts every hit across rotating IPs and keeps a bounded sample", () => {
+    const tally = new InjectionTally(2);
+    for (const ip of ["203.0.113.242", "203.0.113.127", "203.0.113.231"]) {
+      const e = parseAccessLine(line(ip, "GET /api/payments?search=%22%20OR%20SLEEP(6)--"));
+      if (e) tally.add(e);
+    }
+    expect(tally.pending).toBe(true);
+    const taken = tally.take();
+    expect(taken).toMatchObject({ requests: 3, ips: 3 });
+    expect(taken.sample).toHaveLength(2);
+    expect(taken.sample[0]?.request).toContain('" OR SLEEP(6)--');
+    expect(tally.pending).toBe(false);
   });
 });

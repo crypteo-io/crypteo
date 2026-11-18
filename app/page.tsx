@@ -3,19 +3,21 @@ import HeroPreview from "@/components/home/HeroPreview";
 import { Accordion } from "@/components/site/Accordion";
 import { ButtonAnchor, ButtonLink, FrostedButtonLink } from "@/components/site/Button";
 import { CopyButton } from "@/components/site/CopyButton";
+import { FeeCalculator } from "@/components/site/FeeCalculator";
 import { FeatureCard } from "@/components/site/FeatureCard";
 import { HostingComparison } from "@/components/site/HostingComparison";
 import { SectionHeading, SkyBackdrop } from "@/components/site/PageHero";
 import { JsonLd } from "@/components/site/JsonLd";
 import SiteShell from "@/components/site/SiteShell";
-import { feeCopy, type FeeCopy } from "@/lib/billing/fee-schedule";
+import { SolutionCards, type SolutionCardItem } from "@/components/site/SolutionCards";
+import { feeCopy, type FeeCopy, type FeeSchedule } from "@/lib/billing/fee-schedule";
 import { getPublicFeeSchedule } from "@/lib/billing/settings";
 import { homeFaq } from "@/lib/content/faq";
 import { pricingTiers } from "@/lib/content/pricing";
 import { solutionLink } from "@/lib/content/solution-links";
 import { hostingComparison } from "@/lib/content/solutions";
 import { organizationJsonLd, pageMetadata, websiteJsonLd } from "@/lib/seo";
-import { SOURCE_REPO_URL, WORKSPACE_URL } from "@/lib/site-links";
+import { SOURCE_REPO_URL } from "@/lib/site-links";
 import {
   ArrowRight,
   BadgeCheck,
@@ -26,6 +28,7 @@ import {
   Globe,
   KeyRound,
   Link2,
+  Target,
   UserPlus,
   Wallet,
   Zap,
@@ -46,7 +49,8 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function HomePage() {
-  const fees = feeCopy(await getPublicFeeSchedule());
+  const schedule = await getPublicFeeSchedule();
+  const fees = feeCopy(schedule);
   return (
     <SiteShell>
       <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
@@ -56,7 +60,8 @@ export default async function HomePage() {
       <HowItWorks />
       <OpenSourceWhiteLabel fees={fees} />
       <Developers />
-      <PricingTeaser fees={fees} />
+      <Integrations />
+      <PricingTeaser fees={fees} schedule={schedule} />
       <HomeFaq fees={fees} />
     </SiteShell>
   );
@@ -74,7 +79,7 @@ function Hero() {
             Paid straight to your wallet
           </span>
           <h1 className="mx-auto mt-4 mb-5 max-w-5xl text-[44px] leading-[1.08] tracking-[-0.03em] md:text-[76px] lg:text-[88px]">
-            Decentralised payment gateway
+            Decentralised Payment Gateway
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-default-950 md:text-xl">
             Accept Bitcoin and stablecoins with buyers paying your own wallet directly. Non-custodial,
@@ -141,8 +146,8 @@ function NeverBlocked() {
         <div className="grid gap-6 md:grid-cols-2 md:gap-7.5">
           <FeatureCard
             icon={BadgeCheck}
-            title="Kill KYC once"
-            body="No merchant KYC, no account review and no documents to upload. Sign up, add your wallet and sell: every payment goes straight to you, never through a balance someone else controls."
+            title="Instant Approval, No KYC"
+            body="Nobody reviews your account and there are no documents to upload. Confirm your email with a code, add a wallet and your checkout is live the same minute, with every payment going straight to you."
           />
           <FeatureCard
             icon={Globe}
@@ -157,9 +162,9 @@ function NeverBlocked() {
             body="We only ever see public addresses. No private keys, no seed phrases, no withdrawals to approve."
           />
           <FeatureCard
-            icon={Zap}
-            title="Watched from the first second"
-            body="A new checkout is checked on-chain every 15 seconds and confirmed once the network has the confirmations it needs."
+            icon={Target}
+            title="100% Accurate"
+            body="Every deposit is matched to the checkout it paid and marked paid only after the network confirms it. Anything that can't be matched with certainty goes to review, never guessed or dropped."
           />
           <FeatureCard
             icon={BellRing}
@@ -239,13 +244,6 @@ function OpenSourceWhiteLabel({ fees }: { fees: FeeCopy }) {
                   View the source
                 </ButtonAnchor>
               </div>
-              <p className="mt-5 text-sm font-normal text-white/70">
-                Self-host on the cloud provider you prefer, such as{" "}
-                <a href={WORKSPACE_URL} target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-white">
-                  Workspace.org
-                </a>
-                .
-              </p>
             </div>
             <HostingComparison rows={hostingComparison(fees)} />
           </div>
@@ -311,7 +309,30 @@ function Developers() {
   );
 }
 
-function PricingTeaser({ fees }: { fees: FeeCopy }) {
+const INTEGRATIONS: SolutionCardItem[] = [
+  { key: "api", label: "Payment API" },
+  { key: "wordpress", label: "WordPress and WooCommerce" },
+  { key: "paymentLinks", label: "Payment links" },
+  { key: "telegram", label: "Telegram bots" },
+  { key: "development", label: "Custom integration" },
+];
+
+function Integrations() {
+  return (
+    <section>
+      <div className="container-site">
+        <SectionHeading
+          title="Integrations"
+          subtitle="Use the API, add the WooCommerce plugin, send a payment link or sell from a Telegram group. Buyers pay on the same checkout either way."
+          className="mb-10 md:mb-12"
+        />
+        <SolutionCards items={INTEGRATIONS} columns={3} compact />
+      </div>
+    </section>
+  );
+}
+
+function PricingTeaser({ fees, schedule }: { fees: FeeCopy; schedule: FeeSchedule }) {
   const tiers = pricingTiers(fees);
   return (
     <section className="py-20 md:py-28">
@@ -322,9 +343,14 @@ function PricingTeaser({ fees }: { fees: FeeCopy }) {
             title="Simple, volume-based pricing"
             subtitle={`Low fees: ${fees.range} of your monthly volume. No setup fee, no monthly minimum, no payout fees, because there are no payouts.`}
           />
-          <ButtonLink href="/pricing" size="sm" className="shrink-0 self-start md:self-auto">
-            See pricing
-          </ButtonLink>
+          <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">
+            <ButtonLink href="/pricing" size="sm">
+              See pricing
+            </ButtonLink>
+            <Link href={solutionLink("openSource").path} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+              Or pay 0% by self hosting <ChevronRight size={16} />
+            </Link>
+          </div>
         </div>
         <div className="grid gap-6 md:grid-cols-3 md:gap-7.5">
           {tiers.map((t) => (
@@ -336,6 +362,9 @@ function PricingTeaser({ fees }: { fees: FeeCopy }) {
               </div>
             </div>
           ))}
+        </div>
+        <div className="mt-10 md:mt-14">
+          <FeeCalculator schedule={schedule} />
         </div>
       </div>
     </section>

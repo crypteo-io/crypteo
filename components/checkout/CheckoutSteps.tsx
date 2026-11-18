@@ -38,7 +38,7 @@ function Step({ n, label, state }: { n: number; label: string; state: StepState 
 /** Select → Pay progress shown at the top of the checkout card. */
 export function CheckoutSteps({ current }: { current: "select" | "pay" | "expired" }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 justify-self-center">
       <Step n={1} label="Select" state={current === "select" ? "current" : "done"} />
       <span className="h-px w-6 bg-default-200 sm:w-5" />
       <Step

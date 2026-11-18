@@ -108,11 +108,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!link || !link.isActive || !link.merchant.isActive) {
     return { ...(await hostMetadata("Payment link")), robots: NOINDEX };
   }
-  const title = link.title || `Pay ${link.merchant.name}`;
+  // The company name from Branding, as the checkout shows it.
+  const name = link.merchant.brandName ?? link.merchant.name;
+  const title = link.title || `Pay ${name}`;
   // On the merchant's own domain the platform's name appears nowhere.
   const ownDomain = !!(await customHostMerchant());
   const description =
-    link.description || `Pay ${link.merchant.name} with crypto, straight to their own wallet on a secure checkout.`;
+    link.description || `Pay ${name} with crypto, straight to their own wallet on a secure checkout.`;
   return {
     title: ownDomain ? { absolute: title } : title,
     description,
@@ -120,7 +122,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     // Setting openGraph here replaces the inherited image (app/pay/opengraph-image.tsx), so name it.
     openGraph: {
       type: "website",
-      siteName: ownDomain ? link.merchant.name : SITE_NAME,
+      siteName: ownDomain ? name : SITE_NAME,
       title,
       description,
       // The share card is Crypteo-branded, so a merchant's own domain shows none.

@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// No real DNS in a unit test: it timed out under the full parallel run.
+vi.mock("@/lib/email-quality", async (orig) => ({
+  ...(await orig<typeof import("@/lib/email-quality")>()),
+  checkEmail: vi.fn(async () => "ok"),
+}));
 vi.mock("@/lib/db", () => ({ prisma: { merchant: { create: vi.fn() }, adminAuditLog: { create: vi.fn() } } }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(), clientIp: () => "203.0.113.5" }));
 vi.mock("argon2", () => ({ hash: vi.fn(async () => "hashed") }));

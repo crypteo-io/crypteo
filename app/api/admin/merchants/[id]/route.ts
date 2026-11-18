@@ -1,3 +1,4 @@
+import { checkEmail, emailRejectionMessage } from "@/lib/email-quality";
 import { accountNameSchema, merchantEmailSchema, passwordSchema } from "@/lib/account-schemas";
 import {
   DEMOTE_RESERVED_EMAIL_MESSAGE,
@@ -19,7 +20,9 @@ import {
 } from "@/lib/admin";
 import { announceAdminGrant, confirmsOwnPassword, GRANT_PASSWORD_MESSAGE } from "@/lib/admin-grant";
 import { prisma } from "@/lib/db";
-import { notifyAccountSecurityChange } from "@/lib/mailer";
+import { appealUrl } from "@/lib/account-risk";
+import { merchantSuspensionLine, SUSPENSION_REASON_KEYS } from "@/lib/suspension-reasons";
+import { notifyAccountSecurityChange, notifyAccountSuspended } from "@/lib/mailer";
 import { notifyAdmins } from "@/lib/notifications";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { Prisma } from "@prisma/client";
@@ -30,7 +33,16 @@ import { z } from "zod";
 const ID = /^[a-z0-9]{20,40}$/;
 
 const actionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("setActive"), isActive: z.boolean() }),
+  z.object({
+    action: z.literal("setActive"),
+    isActive: z.boolean(),
+    // Required to suspend (the dialog's dropdown); "other" needs a note.
+    reason: z.enum(SUSPENSION_REASON_KEYS).optional(),
+    note: z.string().trim().max(300).optional(),
+  }).refine((a) => a.isActive || !!a.reason, { message: "Choose a reason for the suspension" })
+    .refine((a) => a.isActive || a.reason !== "other" || (a.note?.length ?? 0) >= 5, {
+      message: "Describe the reason (5 characters or more)",
+    }),
   z.object({
     action: z.literal("updateProfile"),
     name: accountNameSchema.optional(),
@@ -86,9 +98,8 @@ const TARGET_SELECT = {
 function noticeFor(action: Action): { action: string; value: string } | null {
   switch (action.action) {
     case "setActive":
-      return action.isActive
-        ? { action: "Account reactivated", value: "Reactivated by an administrator" }
-        : { action: "Account suspended", value: "Suspended by an administrator" };
+      // A suspension has its own notice (notifyAccountSuspended).
+      return action.isActive ? { action: "Account reactivated", value: "Reactivated by an administrator" } : null;
     case "updateProfile":
       return action.email
         ? { action: "Login email changed", value: `Now ${action.email}` }
@@ -146,7 +157,19 @@ async function applyAction(
 ): Promise<NextResponse | null> {
   switch (action.action) {
     case "setActive":
-      await tx.merchant.update({ where: { id }, data: { isActive: action.isActive } });
+      await tx.merchant.update({
+        where: { id },
+        data: action.isActive
+          ? { isActive: true, suspendedAt: null, suspensionReason: null, suspensionNote: null }
+          : {
+              isActive: false,
+              suspendedAt: new Date(),
+              // Signed out of every browser at once, remembered devices too.
+              sessionsRevokedAt: new Date(),
+              suspensionReason: action.reason ?? "other",
+              suspensionNote: action.reason === "other" ? (action.note ?? null) : null,
+            },
+      });
       return null;
     case "updateProfile": {
       if (!action.name && !action.email) return fail("Nothing to change", 400);
@@ -254,6 +277,10 @@ export async function PATCH(
     if (refusal) return fail(refusal, 409);
     const reserved = reservedRefusal(action, target);
     if (reserved) return fail(reserved, 400);
+    if (action.action === "updateProfile" && action.email) {
+      const rejection = emailRejectionMessage(await checkEmail(action.email));
+      if (rejection) return fail(rejection, 400);
+    }
     const promoting = action.action === "setRole" && action.role === ADMIN_ROLE && target.role !== ADMIN_ROLE;
     if (promoting && !(await confirmsOwnPassword(admin.id, action.password))) {
       return fail(GRANT_PASSWORD_MESSAGE, 403);
@@ -295,6 +322,15 @@ export async function PATCH(
         accountEmail: target.email,
         grantedBy: admin.email,
         ip: clientIp(req),
+      });
+    }
+
+    if (action.action === "setActive" && !action.isActive) {
+      await notifyAccountSuspended({
+        to: target.email,
+        merchantName: target.name,
+        reasonLine: merchantSuspensionLine(action.reason),
+        appealUrl: appealUrl(),
       });
     }
 

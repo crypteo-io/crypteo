@@ -101,15 +101,17 @@ export function SessionExpired({
         <div className="rounded-xl border border-default-200 bg-default-50 px-4 py-3.5 text-center">
           <p className="text-[13px] leading-relaxed font-medium text-default-700">
             If you have already sent the deposit for this transaction, please
-            contact us and provide the transaction hash.
+            contact {supportEmail ? "us" : "the store you were paying"} and provide the transaction hash.
           </p>
-          <a
-            href={`mailto:${supportEmail}`}
-            className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-ck-ink hover:underline"
-          >
-            <Mail size={15} aria-hidden="true" />
-            {supportEmail}
-          </a>
+          {supportEmail && (
+            <a
+              href={`mailto:${supportEmail}`}
+              className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-ck-ink hover:underline"
+            >
+              <Mail size={15} aria-hidden="true" />
+              {supportEmail}
+            </a>
+          )}
         </div>
         {returnUrl && (
           <a

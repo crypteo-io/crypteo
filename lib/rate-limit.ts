@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractRawApiKey, lookupApiKey } from "./api-auth";
 import { prisma } from "./db";
+import { urlCertainProbe } from "./probe-traffic";
 
 const WINDOW_MS = 60 * 1000; // 1 minute per window
 
@@ -109,6 +110,10 @@ function tooManyRequests(retryAfter: number): NextResponse {
 export async function rateLimit(
   req: NextRequest,
 ): Promise<NextResponse | null> {
+  // Every API route calls this first, so it is where an account's injection
+  // probes are seen (lib/probe-request.ts, loaded only on a hit).
+  const probe = urlCertainProbe(`${req.nextUrl.pathname}${req.nextUrl.search}`);
+  if (probe) await (await import("./probe-request")).noteProbeRequest(req, probe);
   const { key, limit } = await resolveIdentity(req);
   const retryAfter = await hitBucket(key, limit);
   return retryAfter === null ? null : tooManyRequests(retryAfter);
@@ -132,6 +137,11 @@ export async function rateLimitScoped(
 
 /** A limit on something other than a client IP, such as a Telegram chat. True when over it. */
 export async function isOverLimit(key: string, limit: number, windowMs = WINDOW_MS): Promise<boolean> {
+  return (await hitBucket(key, limit, windowMs)) !== null;
+}
+
+/** One hit on an arbitrary bucket (not per IP); true when it is over `limit`. */
+export async function overLimit(key: string, limit: number, windowMs = WINDOW_MS): Promise<boolean> {
   return (await hitBucket(key, limit, windowMs)) !== null;
 }
 

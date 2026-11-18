@@ -9,7 +9,7 @@ import { formatUsd } from "@/lib/billing/fee-schedule";
 import type { Overview } from "@/lib/dashboard-overview";
 import { formatAmount } from "@/lib/format";
 import type { EndpointHealth } from "@/lib/payment/webhook-health";
-import { AlertTriangle, ArrowRight, ChevronRight, Moon, ShieldCheck, Sun, Sunset, X, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronRight, Moon, Sun, Sunset, Wallet, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { RelativeTime } from "./RelativeTime";
@@ -22,6 +22,8 @@ interface Props extends Overview {
   merchantName?: string | null;
   /** Webhook URLs whose latest delivery failed (see lib/payment/webhook-health). */
   failingWebhooks?: EndpointHealth[];
+  /** The merchant has no receiving wallet yet, so nothing can be paid. */
+  needsWallet?: boolean;
 }
 
 // Recharts takes raw colours, not Tailwind classes; these mirror the tokens in
@@ -56,6 +58,7 @@ export function DashboardOverviewClient({
   area,
   merchantName,
   failingWebhooks = [],
+  needsWallet = false,
   stats,
   statusBreakdown,
   dailyVolumes,
@@ -255,7 +258,7 @@ export function DashboardOverviewClient({
         </div>
       </section>
 
-      {!platform && <SelfCustodyCallout />}
+      {!platform && needsWallet && <AddWalletCallout />}
     </div>
   );
 }
@@ -314,21 +317,20 @@ function FailingWebhooks({ endpoints }: { endpoints: EndpointHealth[] }) {
   );
 }
 
-/** The one setup step that matters most for a non-custodial gateway: where the money lands. */
-function SelfCustodyCallout() {
+/** Until a wallet is saved, checkout has nowhere to send buyers. */
+function AddWalletCallout() {
   return (
     <section className="relative isolate overflow-hidden rounded-2xl bg-linear-to-b from-primary to-primary-deep p-6 text-white md:p-8">
       <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 -z-10 size-56 rounded-full bg-sky-soft/25 blur-3xl" />
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-4">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10">
-            <ShieldCheck size={20} className="text-sky-soft" />
+            <Wallet size={20} className="text-sky-soft" />
           </span>
           <div>
-            <h2 className="text-[20px] text-white">Receive into a self-custody wallet</h2>
+            <h2 className="text-[20px] text-white">Start adding your wallets to receive payments</h2>
             <p className="mt-1 max-w-xl text-[14px] text-white/70">
-              Use Base Wallet or Trust Wallet, not an exchange deposit address. Exchanges hold deposits and ask about
-              every incoming transfer.
+              Checkout shows buyers only the coins you have an address for. Add one and you can take payments.
             </p>
           </div>
         </div>
@@ -336,7 +338,7 @@ function SelfCustodyCallout() {
           href="/dashboard/wallets"
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-primary transition-colors hover:bg-default-100"
         >
-          Manage wallets <ArrowRight size={16} />
+          Add a wallet <ArrowRight size={16} />
         </Link>
       </div>
     </section>

@@ -52,6 +52,7 @@ export function SettingsClient({
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
   // Stored as a ratio (0.99); edited here as a percentage (99).
   const [underpaidPercent, setUnderpaidPercent] = useState("99");
   const [saving, setSaving] = useState(false);
@@ -135,6 +136,10 @@ export function SettingsClient({
   };
 
   const handleDelete = async () => {
+    if (!deletePassword) {
+      toast.warning("Password required", "Enter your password to delete the account.");
+      return;
+    }
     const confirmed = await confirm({
       title: "Delete your account?",
       description:
@@ -143,7 +148,7 @@ export function SettingsClient({
       tone: "danger",
     });
     if (!confirmed) return;
-    const ok = await save(() => apiRequest("/api/merchants", { method: "DELETE" }), {
+    const ok = await save(() => apiRequest("/api/merchants", { method: "DELETE", body: { password: deletePassword } }), {
       loading: "Deleting account…",
       success: "Account deleted",
       error: "Account not deleted",
@@ -405,6 +410,18 @@ export function SettingsClient({
                   links stop working and your personal data is removed. Payment
                   records are kept for accounting. This can&apos;t be undone.
                 </p>
+                <div className="space-y-2 max-w-sm mb-6">
+                  <label htmlFor="settings-delete-password" className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest pl-1">
+                    Your Password
+                  </label>
+                  <SecretInput
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    id="settings-delete-password"
+                    autoComplete="current-password"
+                    disabled={saving}
+                  />
+                </div>
                 <button
                   onClick={handleDelete}
                   disabled={saving}

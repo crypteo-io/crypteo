@@ -81,7 +81,7 @@ export function PaymentDetailClient({
       const res = await toast.promise(
         apiRequest<{ success: boolean; statusCode: number | null; url: string }>(
           `/api/webhooks/${payment.id}`,
-          { method: "POST", body: { paymentId: payment.id } },
+          { method: "POST" },
         ),
         {
           loading: "Sending webhook…",

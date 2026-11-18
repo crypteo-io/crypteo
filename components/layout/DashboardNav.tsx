@@ -3,7 +3,7 @@
 import { Logo } from "@/components/site/Logo";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { signOutHere } from "@/lib/sign-out";
-import { LogOut, Plus, Search } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
@@ -67,15 +67,6 @@ export function DashboardNav({
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             {merchant && <PaymentSearch />}
             <NotificationBell area={area} />
-            {merchant && (
-              <Link
-                href="/dashboard/payment-links/create"
-                aria-label="New payment link"
-                className="inline-flex size-10 items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-deep sm:w-auto sm:px-4"
-              >
-                <Plus size={16} /> <span className="hidden sm:inline">New link</span>
-              </Link>
-            )}
             <AccountMenu area={area} user={user} />
           </div>
         </nav>

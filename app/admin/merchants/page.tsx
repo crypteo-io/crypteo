@@ -1,7 +1,7 @@
 import { MerchantsClient } from "@/components/dashboard/MerchantsClient";
 import { adminPageSession } from "@/lib/admin";
 import { prisma } from "@/lib/db";
-import { isDisposableEmail } from "@/lib/email-quality";
+import { inboxKey, isDisposableEmail, suspiciousEmailReason } from "@/lib/email-quality";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -36,6 +36,17 @@ export default async function MerchantsPage() {
     take: MAX_MERCHANTS_LISTED,
   });
   // Flagged here, not in the client: the blocklist is ~141k domains.
-  const listed = merchants.map((m) => ({ ...m, disposableEmail: isDisposableEmail(m.email) }));
+  const perInbox = new Map<string, number>();
+  for (const m of merchants) perInbox.set(inboxKey(m.email), (perInbox.get(inboxKey(m.email)) ?? 0) + 1);
+  const listed = merchants.map((m) => {
+    const others = (perInbox.get(inboxKey(m.email)) ?? 1) - 1;
+    return {
+      ...m,
+      disposableEmail: isDisposableEmail(m.email),
+      suspiciousEmail:
+        suspiciousEmailReason(m.email) ??
+        (others > 0 ? `This inbox also opened ${others} other account${others === 1 ? "" : "s"} (Gmail ignores dots and +tags).` : null),
+    };
+  });
   return <MerchantsClient merchants={JSON.parse(JSON.stringify(listed))} />;
 }

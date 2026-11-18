@@ -41,6 +41,7 @@ export const ADMIN_KINDS = [
   "admin_proxy_recovered",
   "admin_probe",
   "admin_access",
+  "admin_account_risk",
 ] as const;
 export type AdminKind = (typeof ADMIN_KINDS)[number];
 

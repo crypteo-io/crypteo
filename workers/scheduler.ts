@@ -9,12 +9,13 @@ import {
 import { sendAdminAlert, sendLifecycleAlert } from "../lib/admin-alerts";
 import { GRACE_PERIOD_MS, TOPUP_WINDOW_MS } from "../lib/payment/match";
 import { deliverWebhook } from "../lib/payment/notify";
+import { alertFailingWebhooks } from "../lib/payment/webhook-alerts";
 import { expireStalePending, timeoutStaleConfirming } from "./expiry";
 import { newReadCache } from "../lib/chains/reads";
 import { pollPayment } from "./poll";
 import { runBillingCycle, runCycleClose } from "../lib/billing/run";
 import { purgeOldNotifications } from "../lib/notifications";
-import { purgeUnverifiedSignups } from "../lib/otp";
+import { purgeExpiredOtps, purgeUnverifiedSignups } from "../lib/otp";
 import { checkAllProxies } from "../lib/proxy-health";
 import { startProxySync } from "../lib/proxy-settings";
 
@@ -361,6 +362,19 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
+// ─── CRON: failing webhook emails — every 15 minutes ──────────────────────────
+// Emails a merchant whose webhook URL keeps failing (lib/payment/webhook-alerts.ts).
+
+cron.schedule("*/15 * * * *", async () => {
+  if (shuttingDown) return;
+  try {
+    const emailed = await alertFailingWebhooks(new Date());
+    if (emailed) console.log(`[${new Date().toISOString()}] Emailed ${emailed} merchant(s) about failing webhooks`);
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Webhook alert error:`, err);
+  }
+});
+
 // ─── CRON: platform fees — every 2 minutes, month close hourly ───────────────
 // The cycle settles paid invoices (and lifts holds) within minutes of a fee
 // checkout confirming, places holds and sends reminders. The month close is
@@ -399,6 +413,16 @@ cron.schedule("5 * * * *", async () => {
     console.error(`[${new Date().toISOString()}] Fee close error:`, err);
   } finally {
     billingBusy = false;
+  }
+});
+
+// Codes past their time are thrown away, not left in the table.
+cron.schedule("*/5 * * * *", async () => {
+  if (shuttingDown) return;
+  try {
+    await purgeExpiredOtps();
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Expired code purge error:`, err);
   }
 });
 

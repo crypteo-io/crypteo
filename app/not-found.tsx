@@ -48,7 +48,7 @@ export default async function NotFound() {
 /** A merchant's own domain: their logo, colour and support contact, nothing of the platform's. */
 async function MerchantNotFound() {
   const merchant = await customHostMerchant();
-  const email = merchant?.supportEmail;
+  const email = merchant?.showSupportEmail === false ? null : merchant?.supportEmail;
   return (
     <main
       style={checkoutPaletteStyle(merchant?.color ?? null)}

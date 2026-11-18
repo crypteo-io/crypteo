@@ -51,6 +51,9 @@ export default async function MerchantDetailPage({
       feeExemptBy: true,
       feeExemptAt: true,
       billingHoldAt: true,
+      suspendedAt: true,
+      suspensionReason: true,
+      suspensionNote: true,
       wallets: {
         orderBy: { createdAt: "desc" },
         select: { id: true, chain: true, token: true, address: true, isActive: true, createdAt: true },

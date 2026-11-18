@@ -1,8 +1,5 @@
 // Off-site and download links the marketing site points at, each in one place.
 
-/** A cloud provider named on the home page. */
-export const WORKSPACE_URL = "https://workspace.org";
-
 /** The public source code (MIT). */
 export const SOURCE_REPO_URL = "https://github.com/crypteo-io/crypteo";
 

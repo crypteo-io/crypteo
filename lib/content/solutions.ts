@@ -62,14 +62,25 @@ export type SolutionSection =
   | { kind: "code"; title: string; subtitle: string; examples: { label: string; code: string }[]; next: string[] }
   | { kind: "contrast"; title: string; subtitle: string; ours: string[]; theirsTitle: string; theirs: string[] };
 
+/** The alternating section after a page's first section: copy beside a page-specific illustration. */
+export interface SolutionShowcase {
+  eyebrow: string;
+  title: string;
+  body: string;
+  points: string[];
+}
+
 export interface SolutionContent {
   eyebrow: string;
+  /** The home hero's lightning bolt in the eyebrow. */
+  lightning?: boolean;
   subtitle: string;
   primary: SolutionLinkTarget;
   secondary: SolutionLinkTarget;
   featuresTitle: string;
   features: SolutionFeature[];
   sections: SolutionSection[];
+  showcase: SolutionShowcase;
   faq: FaqItem[];
   ctaTitle: string;
 }
@@ -113,6 +124,7 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
     case "whiteLabel":
       return {
         eyebrow: "White label",
+        lightning: true,
         subtitle:
           "Put your brand on the whole payment flow: your logo and colour on the checkout, payment links on your own domain and your support contact where buyers look for help. The money still goes straight to your wallet.",
         primary: { label: "Start for free", href: "/register" },
@@ -153,6 +165,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "What your buyer sees",
+          title: "A checkout that looks like part of your shop",
+          body: "Buyers trust a payment page that matches the store they just left. With your logo at the top, your colour on every button and your own address in the browser bar, the checkout reads as yours from the first click to the paid screen.",
+          points: [
+            "Open the full-page preview from Branding to see the real checkout on sample data before you share a link.",
+            "Swap our support address for yours and add a Contact us link, so questions go to your team.",
+            "Keep a small Powered by Crypteo line if it helps buyers trust a new store, or leave it off.",
+          ],
+        },
         faq: [
           {
             q: "Will my buyers see the Crypteo name?",
@@ -165,6 +187,14 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "Can I offer a crypto gateway to my own clients under my name?",
             a: "Yes, by self-hosting. Crypteo's source is MIT licensed, so you can run your own instance, rebrand it completely and onboard your clients as merchants on it.",
+          },
+          {
+            q: "Can I preview my branded checkout before buyers see it?",
+            a: "Yes. Branding shows a quick preview as you change the logo and colour, and a Preview button opens the full checkout on sample data, exactly as a buyer would see it.",
+          },
+          {
+            q: "Do I need my own SSL certificate for a custom payment domain?",
+            a: "No. Once your subdomain's TXT record checks out and its CNAME points at Crypteo, a certificate is issued for it automatically and renewed without you doing anything.",
           },
         ],
         ctaTitle: "Put your brand on crypto checkout",
@@ -218,6 +248,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "Running on your server",
+          title: "One command brings the whole stack up",
+          body: "The repository ships with a Docker Compose file that starts every part of the gateway in the right order. The database comes up first, migrations run before the app is allowed to start, and the chain watcher runs as its own process next to the web app.",
+          points: [
+            "Each chain reads from a list of RPC endpoints you control with an environment variable, so you can bring your own nodes.",
+            "Nightly Postgres backups and a monitor that emails you when the app, the worker or a backup goes quiet.",
+            "Upgrading is a git pull and a rebuild. Schema changes apply themselves before the new version serves a request.",
+          ],
+        },
         faq: [
           {
             q: "What licence is Crypteo released under?",
@@ -230,6 +270,14 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "Who keeps a self-hosted instance up to date?",
             a: "You do. Pull a new release and rebuild: the migrate step applies database changes before the app starts. On the hosted service, updates reach you without any work on your side.",
+          },
+          {
+            q: "Do I need paid blockchain nodes to self-host?",
+            a: "No. Every chain comes with a list of public endpoints and requests rotate across them. You can add your own nodes or paid providers to any list later, one environment variable per chain.",
+          },
+          {
+            q: "What kind of server does a self-hosted gateway need?",
+            a: "A Linux server that runs Docker. A modest VPS is enough to start, since the app and the worker are the same image; building that image is the step that needs the most memory.",
           },
         ],
         ctaTitle: "Run it yourself, or let us",
@@ -278,6 +326,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "After the request",
+          title: "Your backend hears about every step",
+          body: "Once the buyer picks a network and pays, the payment moves through its statuses on its own, and each change is posted to your webhook URL. You don't poll, and you don't have to read a blockchain to know where an order stands.",
+          points: [
+            "Each event carries the payment's details, signed with your secret in the X-Signature header.",
+            "The paid field turns true for confirmed and overpaid payments, so one check decides whether to ship.",
+            "Missed one? Every delivery is logged in the dashboard, where you can resend it.",
+          ],
+        },
         faq: [
           {
             q: "How do I authenticate API requests?",
@@ -290,6 +348,14 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "What if my webhook endpoint is down?",
             a: "Crypteo retries after 1 minute, 5 minutes, 15 minutes, 1 hour and 6 hours. You can also resend from the dashboard, or read the payment with GET /payments/{id} at any time.",
+          },
+          {
+            q: "Which field tells me an order is paid?",
+            a: "The paid boolean, on every webhook and on GET /payments/{id}. It is true when the payment is confirmed or overpaid. Fulfil on that rather than on one status name.",
+          },
+          {
+            q: "Can the buyer return to my site after paying?",
+            a: "Yes. Pass successUrl and cancelUrl when you create the payment. The paid screen sends the buyer back after a few seconds, and the cancel URL is offered if they leave or the session expires. Treat the return visit as navigation, not proof of payment.",
           },
         ],
         ctaTitle: "Get an API key in a minute",
@@ -345,6 +411,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "Where the money goes",
+          title: "From the buyer's wallet to yours, in one transfer",
+          body: "A Crypteo checkout shows the buyer one of your own addresses. Their payment is a single on-chain transfer to it, the same as sending crypto to a friend. Crypteo sits beside that transfer, not in it: it reads the public chain, matches the deposit to the order and tells you.",
+          points: [
+            "No intermediate wallet, so no withdrawal step and no payout fee.",
+            "Nothing for anyone to freeze, since Crypteo never holds a balance in your name.",
+            "Each payment links to a public transaction you can open on any block explorer.",
+          ],
+        },
         faq: [
           {
             q: "Why doesn't Crypteo need to verify my identity?",
@@ -357,6 +433,14 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "What happens to a payment if Crypteo is offline?",
             a: "The money still arrives, since it's an ordinary transfer to your address. Only the notice can be late: detection picks up again when the service is back, and a payment that lands after its checkout closed is recorded for review rather than dropped.",
+          },
+          {
+            q: "Can a crypto payment be charged back?",
+            a: "No. An on-chain transfer can't be reversed by the buyer or their bank. If you want to refund someone, you send the crypto back yourself from your wallet.",
+          },
+          {
+            q: "Am I still responsible for taxes and licences without KYC?",
+            a: "Yes. Crypteo doesn't check your identity because it never holds your money, but the rules where you sell still apply to you. Keep your own records; the dashboard lists every payment with its transaction.",
           },
         ],
         ctaTitle: "Take crypto without asking permission",
@@ -406,6 +490,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "How it fits together",
+          title: "Three pieces connect Crypteo to your product",
+          body: "Your server creates a payment and keeps its id. The buyer pays on the hosted checkout, or on your own page if you fix the network. Crypteo posts a signed webhook to your server as the payment moves, and you mark the order paid. That's the whole integration, on any language or framework.",
+          points: [
+            "Give every site or client its own API key and webhook endpoint, so their payments never mix.",
+            "Carry your own order id in externalId and read it back on every webhook.",
+            "Build against test keys first, then go live by swapping one key.",
+          ],
+        },
         faq: [
           {
             q: "Do I need to handle each blockchain separately?",
@@ -418,6 +512,14 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "Can I show the payment details in my own interface?",
             a: "Yes. A payment created with a fixed chain and token returns its wallet address, amount and any XRP tag or Solana memo, so you can render them yourself and follow the status by webhook.",
+          },
+          {
+            q: "Is there a sandbox for building the integration?",
+            a: "Test-mode keys are the sandbox. Their payments never touch a chain, the checkout gives them a simulate button, and the API playground lets you try every request from the browser.",
+          },
+          {
+            q: "Can you help with a custom integration?",
+            a: "Write to us through the contact page with what you're building. The docs cover the common setups, and we're happy to point you at the right approach for the rest.",
           },
         ],
         ctaTitle: "Start building with a test key",
@@ -467,6 +569,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "Inside WooCommerce",
+          title: "Crypto sits next to your other payment methods",
+          body: "After you activate the plugin, Crypteo shows up in WooCommerce's payment settings like any other method. Shoppers choose it at checkout, pay on your order page, and the order is marked paid once the payment counts. You keep running the store the way you already do.",
+          points: [
+            "Orders change only after the plugin reads the payment back from the API, never on a webhook alone.",
+            "Works with the block checkout and the classic shortcode checkout.",
+            "Point it at crypteo.io, or at your own instance if you self-host.",
+          ],
+        },
         faq: [
           {
             q: "Does the plugin support the WooCommerce block checkout?",
@@ -483,6 +595,10 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "What happens to the order if the buyer underpays?",
             a: "It stays pending. Crypteo marks the payment underpaid and the buyer can top up within the payment window. The order completes only when the payment counts as paid.",
+          },
+          {
+            q: "Is the WooCommerce plugin free?",
+            a: `Yes, the plugin costs nothing. On hosted Crypteo you pay ${fees.range} of monthly volume like any merchant, and a self-hosted instance pays no platform fee.`,
           },
         ],
         ctaTitle: "Take crypto on your WooCommerce store",
@@ -541,6 +657,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "Sharing a link",
+          title: "Paste it in a chat and get paid there",
+          body: "A payment link is a normal URL, so it works anywhere you can paste text: a DM, an invoice, a QR code on a market stall or the bio of your profile. When a buyer opens it they get a checkout of their own with the price you set, converted to the coin they choose.",
+          points: [
+            "Each payment the link takes shows in your dashboard with its own status and transaction.",
+            "Set a limit, such as 10 payments for a small run of prints, and the link closes when it's reached.",
+            "Links on your own subdomain, like pay.yourstore.com, show your logo and colour.",
+          ],
+        },
         faq: [
           {
             q: "Do crypto payment links expire?",
@@ -557,6 +683,10 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "What does a payment link cost?",
             a: `The same as any other payment: ${fees.range} of monthly volume on hosted Crypteo, and nothing to create or keep a link.`,
+          },
+          {
+            q: "How do I know when someone pays my link?",
+            a: "You get an email when a payment confirms, it appears on your dashboard, and a connected Telegram chat can post it too. If the link has a webhook endpoint, your server hears about it as well.",
           },
         ],
         ctaTitle: "Send your first crypto payment link today",
@@ -615,6 +745,16 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
             ],
           },
         ],
+        showcase: {
+          eyebrow: "In the chat",
+          title: "A price becomes a pay button in seconds",
+          body: "You type the command in your group or channel and the bot answers with a message your members can act on. Tapping the button opens your branded checkout in the browser, where they choose a coin and pay your wallet. When the payment confirms, the bot can say so in the chat.",
+          points: [
+            "Works in private chats, groups and channels, connected with a one-time code from your dashboard.",
+            "Only the group's admins can post buttons, so nobody else sells in your name.",
+            "The bot holds no keys and never touches the payment.",
+          ],
+        },
         faq: [
           {
             q: "Can I add the bot to a Telegram channel?",
@@ -631,6 +771,10 @@ export function solutionContent(key: SolutionKey, fees: FeeCopy): SolutionConten
           {
             q: "Does the Telegram bot work on a self-hosted Crypteo?",
             a: "Yes. Create your own bot with BotFather, add its token to your environment and run the setup script.",
+          },
+          {
+            q: "Does the Telegram bot cost extra?",
+            a: `No. Payments through the bot are ordinary payments: ${fees.range} of monthly volume on hosted Crypteo, and no platform fee on a self-hosted instance.`,
           },
         ],
         ctaTitle: "Start taking crypto on Telegram",

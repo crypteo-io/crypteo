@@ -170,9 +170,9 @@ describe("postWebhook (connect-time SSRF guard)", () => {
   });
 
   it("refuses the host's own configured public IPs", async () => {
-    process.env.WEBHOOK_BLOCKED_IPS = "203.0.113.10, 2001:db8::1";
+    process.env.WEBHOOK_BLOCKED_IPS = "203.0.113.10, 2001:db8::10";
     await expect(post("http://203.0.113.10:22/")).rejects.toThrow(/blocked/);
-    await expect(post("http://[2001:db8::1]/")).rejects.toThrow(/blocked/);
+    await expect(post("http://[2001:db8::10]/")).rejects.toThrow(/blocked/);
     expect(isBlockedWebhookIp("203.0.113.10")).toBe(true);
     expect(await isSafeWebhookUrl("http://203.0.113.10:3000/")).toBe(false);
   });

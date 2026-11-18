@@ -1,13 +1,21 @@
+import { flagProbeInput } from "@/lib/abuse-signals";
 import { auth } from "@/lib/auth";
-import { checkoutFooterSchema, normalizeBrandColor } from "@/lib/branding";
+import { brandNameSchema, checkoutFooterSchema, normalizeBrandColor } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { reservedNameRefusal } from "@/lib/reserved-names";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-const bodySchema = checkoutFooterSchema.partial().extend({ brandColor: z.string().max(16).nullable().optional() });
+const bodySchema = checkoutFooterSchema.partial().extend({
+  brandColor: z.string().max(16).nullable().optional(),
+  brandName: brandNameSchema.nullable().optional(),
+});
 
-/** Sets any of the checkout's colour (null = Crypteo's) and footer fields; omitted fields keep their value. */
+/**
+ * Sets any of the checkout's name (null = the account name), colour (null =
+ * Crypteo's) and footer fields; omitted fields keep their value.
+ */
 export async function PUT(req: NextRequest) {
   const rl = await rateLimit(req);
   if (rl) return rl;
@@ -24,7 +32,13 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const { brandColor: rawColor, ...footer } = parsed.data;
+  const { brandColor: rawColor, brandName, ...footer } = parsed.data;
+  if (brandName) {
+    // The same rule as account names: nobody checks out as "Crypteo".
+    const account = await prisma.merchant.findUnique({ where: { id: session.user.id }, select: { role: true } });
+    const refusal = account ? reservedNameRefusal(brandName, account.role) : "Account not found";
+    if (refusal) return NextResponse.json({ error: refusal, field: "brandName" }, { status: 400 });
+  }
   let brandColor: string | null | undefined = rawColor;
   if (rawColor) {
     brandColor = normalizeBrandColor(rawColor);
@@ -37,8 +51,17 @@ export async function PUT(req: NextRequest) {
 
   const saved = await prisma.merchant.update({
     where: { id: session.user.id },
-    data: { brandColor, ...footer },
-    select: { brandColor: true, supportEmail: true, supportLinkLabel: true, supportLinkUrl: true, showPoweredBy: true },
+    data: { brandColor, brandName, ...footer },
+    select: {
+      brandName: true,
+      brandColor: true,
+      supportEmail: true,
+      supportLinkLabel: true,
+      supportLinkUrl: true,
+      showPoweredBy: true,
+      showSupportEmail: true,
+    },
   });
+  if (brandName) await flagProbeInput(session.user.id, "Checkout name", { name: brandName });
   return NextResponse.json({ success: true, ...saved });
 }

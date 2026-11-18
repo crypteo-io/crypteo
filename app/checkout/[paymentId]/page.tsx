@@ -52,6 +52,7 @@ export default async function CheckoutPage({
       isTest: true,
       cancelUrl: true,
       feeForStatementId: true,
+      branding: true,
       paymentLink: {
         select: { title: true, description: true, chain: true, token: true },
       },
@@ -153,7 +154,7 @@ export default async function CheckoutPage({
     cancelUrl: paymentData.cancelUrl,
   };
 
-  const branding = toCheckoutBranding(paymentData.merchant);
+  const branding = toCheckoutBranding(paymentData.merchant, paymentData.branding);
 
   return (
     <CheckoutShell branding={branding}>

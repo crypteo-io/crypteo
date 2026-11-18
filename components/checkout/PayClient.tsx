@@ -524,7 +524,8 @@ export function PayClient({
       className="relative w-full"
     >
       <CheckoutLayout {...layoutProps}>
-        <div className="mb-6 flex items-center justify-between gap-3">
+        {/* Back button, steps, and a matching spacer: the steps centre on a phone */}
+        <div className="mb-6 grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-3 sm:flex sm:justify-between">
           {canGoBack ? (
             <Link
               href={`/checkout/${payment.id}?edit=true`}
@@ -615,7 +616,7 @@ export function PayClient({
                 n={1}
                 title={isUnderpaid ? "Send the remaining" : "Send exactly"}
                 badge={
-                  <CheckoutTooltip content="This is what the merchant must receive. Your wallet adds the network fee on top, so keep a little extra for it.">
+                  <CheckoutTooltip content="Ensure you cover the network fees and send the exact amount.">
                     <Info size={15} strokeWidth={2.5} aria-label="About the network fee" className="cursor-help text-default-500" />
                   </CheckoutTooltip>
                 }
@@ -758,15 +759,17 @@ export function PayClient({
                       <span className="font-semibold text-default-900">{meta.name}</span> network only. Coins sent on
                       another network can&apos;t be recovered.
                     </li>
-                    <li>Send the full amount shown. The network fee is paid on top, from your wallet.</li>
-                    <li>Most payments show up within a few minutes, and this page moves on by itself.</li>
-                    <li>
-                      Something wrong? Write to{" "}
-                      <a href={`mailto:${supportEmail}`} className="font-semibold text-ck-ink">
-                        {supportEmail}
-                      </a>{" "}
-                      and include your Payment ID.
-                    </li>
+                    <li>Send the full amount shown. Don&apos;t forget to also cover the network fee.</li>
+                    <li>Most payments show up within a few minutes, and this page updates automatically.</li>
+                    {supportEmail && (
+                      <li>
+                        Something wrong? Write to{" "}
+                        <a href={`mailto:${supportEmail}`} className="font-semibold text-ck-ink">
+                          {supportEmail}
+                        </a>{" "}
+                        and include your Payment ID.
+                      </li>
+                    )}
                   </ul>
                 </motion.div>
               )}

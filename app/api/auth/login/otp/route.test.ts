@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({ prisma: { merchant: { findUnique: vi.fn() } } }));
-vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(), overLimit: vi.fn(async () => false) }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: vi.fn() }));
 vi.mock("@/lib/otp", async (orig) => ({
   ...(await orig<typeof import("@/lib/otp")>()),
@@ -40,21 +40,22 @@ function login(body: Record<string, unknown>, host = SITE, headers: Record<strin
 }
 
 const creds = { email: "owner@example.com", password: "pw" };
+const owner = () => ({
+  email: "owner@example.com",
+  password: "hash",
+  role: "merchant",
+  isActive: true,
+  emailVerified: new Date(),
+  twoFactorMethod: "email",
+  totpSecret: null,
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
-  mock(prisma.merchant.findUnique).mockResolvedValue({
-    email: "owner@example.com",
-    password: "hash",
-    role: "merchant",
-    isActive: true,
-    emailVerified: new Date(),
-    twoFactorMethod: "email",
-    totpSecret: null,
-  });
+  mock(prisma.merchant.findUnique).mockResolvedValue(owner());
 });
 
 describe("POST /api/auth/login/otp captcha", () => {
@@ -203,5 +204,25 @@ describe("POST /api/auth/login/otp on a remembered browser", () => {
     const res = await login(creds, SITE, fromDevice);
     expect(res.status).toBe(401);
     expect(isTrustedLogin).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/auth/login/otp suspended account", () => {
+  beforeEach(() => mock(verifyTurnstile).mockResolvedValue(true));
+
+  it("says it is suspended once the password is right, and sends no code", async () => {
+    mock(prisma.merchant.findUnique).mockResolvedValue({ ...owner(), isActive: false });
+    const res = await login({ ...creds, turnstileToken: "t" });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ suspended: true, error: expect.stringMatching(/suspended/) });
+    expect(generateOtp).not.toHaveBeenCalled();
+  });
+
+  it("tells a wrong password nothing about the suspension", async () => {
+    mock(prisma.merchant.findUnique).mockResolvedValue({ ...owner(), isActive: false });
+    mock(verify).mockResolvedValueOnce(false);
+    const res = await login({ ...creds, turnstileToken: "t" });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Invalid email or password" });
   });
 });

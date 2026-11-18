@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./db", () => ({
   prisma: { $queryRaw: vi.fn(), apiKey: { findUnique: vi.fn() } },
 }));
+vi.mock("./probe-request", () => ({ noteProbeRequest: vi.fn(async () => {}) }));
 
 import { prisma } from "./db";
 import {
@@ -130,5 +131,15 @@ describe("scoped limits", () => {
 
     queryRaw.mockRejectedValueOnce(new Error("db down"));
     expect(await isRateLimitedByHeaders(new Headers(), "paylink", 20)).toBe(false);
+  });
+});
+
+describe("rateLimit sees an account's injection probes (2026-11-15)", () => {
+  it("hands an injection-carrying API URL to the account's risk record, and only that", async () => {
+    const { noteProbeRequest } = await import("./probe-request");
+    await rateLimit(new NextRequest("https://crypteo.io/api/payments?page=1"));
+    expect(noteProbeRequest).not.toHaveBeenCalled();
+    await rateLimit(new NextRequest("https://crypteo.io/api/payments?search=%27%3B%20SELECT%20pg_sleep%286%29--"));
+    expect(noteProbeRequest).toHaveBeenCalledWith(expect.anything(), "SQL injection");
   });
 });

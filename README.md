@@ -1,14 +1,40 @@
-# Open Source Payment Gateway
+# Open Source Crypto Payment Gateway
 
-**Crypteo** (crypteo.io) is a self-hosted, non-custodial crypto payment gateway. Buyers pay the merchant's own wallet directly; Crypteo watches the chain, attributes each deposit to its checkout session and notifies the merchant. No processor balance to freeze, no exchange in the middle, no KYC.
+**Crypteo** is an open-source, self-hosted, **non-custodial crypto payment gateway**. Accept **Bitcoin, Ethereum, USDT, USDC, Solana, XRP, Tron, BNB, Polygon, Dogecoin, Zcash and Cardano** straight into your own wallet: buyers pay your address directly, Crypteo watches the blockchain, matches each deposit to its order and notifies your store by webhook. No custodian holding your money, no balance to freeze, no exchange in the middle, no KYC.
 
-It is open source under the MIT licence: use the hosted service at [crypteo.io](https://crypteo.io), or run your own instance with Docker and pay no platform fee. Self-hosted, it is fully white label: your domain, your logo and colours, your support contact, and payment links on your merchants' own subdomains.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED.svg)](#-docker-deployment-self-hosting)
+[![Hosted service](https://img.shields.io/badge/hosted-crypteo.io-1c2f41.svg)](https://crypteo.io)
 
-The API reference lives at `/docs` on any instance (hosted: `https://crypteo.io/docs`). A WooCommerce plugin is in `integrations/woocommerce/crypteo-for-woocommerce/`: buyers can pay on the store's own site or on the hosted checkout. Point its "API base URL" setting at your instance.
+Use it two ways:
 
----
+- **Self-host it for free.** Run your own instance with Docker Compose and pay no platform fee. It is fully white label: your domain, your logo and colours, your support contact, and payment links on your merchants' own subdomains.
+- **Use the hosted service** at [crypteo.io](https://crypteo.io): create an account, add your wallet addresses and start accepting crypto payments in minutes.
 
-## 🚀 Key Features
+Developers get a REST **crypto payment API**, signed webhooks, a hosted checkout and an interactive API playground; the full reference is at `/docs` on any instance ([crypteo.io/docs](https://crypteo.io/docs)). Stores on WordPress can use the **WooCommerce crypto payment plugin** in [`integrations/woocommerce/crypteo-for-woocommerce/`](integrations/woocommerce/crypteo-for-woocommerce/): buyers pay on the store's own site or on the hosted checkout. Point its "API base URL" setting at your instance.
+
+## Contents
+
+- [Why a non-custodial crypto payment gateway](#why-a-non-custodial-crypto-payment-gateway)
+- [Features](#-features)
+- [Supported cryptocurrencies](#supported-cryptocurrencies)
+- [Quick start](#-getting-started)
+- [Self-hosting with Docker](#-docker-deployment-self-hosting)
+- [Crypto payment API](#-api-overview)
+- [Webhooks](#-webhooks-configuration)
+- [Security](#-security)
+- [FAQ](#faq)
+
+## Why a non-custodial crypto payment gateway
+
+Most crypto payment processors are custodial: your customers pay the processor, which holds the coins, converts or batches them, and pays you out later, often after identity checks and with the right to freeze the balance. Crypteo never touches the money. Every payment lands in a wallet you control, at the moment the buyer sends it, and Crypteo only reads public blockchain data to tell your store when an order is paid.
+
+- **Your keys, your coins**: you only ever give Crypteo public receiving addresses.
+- **No KYC to accept payments**: there is no custody, so there is nothing to verify.
+- **Instant settlement**: funds are yours as soon as the transaction confirms on-chain.
+- **Open source**: read every line that touches your payments, or run it yourself.
+
+## 🚀 Features
 
 - **Non-Custodial by Design**: Payments settle directly to your blockchain addresses. Crypteo never holds your funds.
 - **Multi-Chain Support**: Native support for **Ethereum**, **Bitcoin**, **Solana**, **XRP**, **BNB Smart Chain**, **Polygon**, **Tron**, **Dogecoin**, **Zcash** (transparent addresses) and **Cardano** — including USDC/USDT as ERC-20, BEP-20, Polygon, **SPL** (Solana) and **TRC-20** (Tron, USDT only) tokens.
@@ -24,7 +50,8 @@ The API reference lives at `/docs` on any instance (hosted: `https://crypteo.io/
 - **Developer-First API**: RESTful API with SHA-256 protected keys and automated webhook notifications.
 - **Interactive API Playground**: Built-in, side-by-side API tester to safely simulate payment creation and test responses directly from the dashboard.
 - **Hosted Checkout**: Two-panel checkout with a coin-card network picker, numbered payment steps, QR codes and real-time status updates; built for phones first.
-- **Checkout Branding**: merchants put their own logo (cropped in the browser, re-encoded on the server) and theme colour on every checkout and payment link, with contrast kept readable automatically.
+- **Checkout Branding**: merchants put their own company name, logo (cropped in the browser, re-encoded on the server) and theme colour on every checkout and payment link, with contrast kept readable automatically, and choose whether a support email shows.
+- **Per-Checkout Branding via API**: each payment created through the API can carry its own name, colour, logo and support contact, so one account serves several websites, each with its own look.
 - **Secure Infrastructure**: Password hashing with Argon2id and transaction deduplication to prevent double-credit attacks.
 - **Production-Ready Hardening**: Docker health checks, automated migrations, worker concurrency guards, and instant admin failure workflows via Email.
 - **Worker Liveness Monitoring**: The payment worker publishes a heartbeat on every poll cycle, surfaced via `/api/health`. Because the worker has no HTTP surface of its own, this is what makes a stalled poller visible — admins are alerted rather than discovering it through undetected deposits.
@@ -36,6 +63,27 @@ The API reference lives at `/docs` on any instance (hosted: `https://crypteo.io/
 - **Blog with Rich-Text Editor** (`/blog`, admin `/blog`): admins write in a rich-text editor (Tiptap) with an image gallery and full version history; every body is sanitised on the server, and publishing refreshes the cached pages at once.
 - **Marketing Site**: home, pricing, FAQ (with FAQPage JSON-LD), about, contact, API reference (`/docs`), API playground, terms and privacy.
 - **Self-Custody Guidance**: merchants are steered to wallets they hold the keys to (Base Wallet, Trust Wallet), not exchange deposit addresses, at signup, on the wallets page and in the FAQ.
+
+---
+
+---
+
+## Supported cryptocurrencies
+
+| Network | Coins and tokens |
+| ------- | ---------------- |
+| Bitcoin | BTC |
+| Ethereum | ETH, USDC, USDT (ERC-20) |
+| Solana | SOL, USDC, USDT (SPL) |
+| BNB Smart Chain | BNB, USDC, USDT (BEP-20) |
+| Polygon | POL, USDC, USDT |
+| Tron | TRX, USDT (TRC-20) |
+| XRP Ledger | XRP |
+| Dogecoin | DOGE |
+| Zcash | ZEC (transparent addresses) |
+| Cardano | ADA |
+
+Stablecoin payments (USDT and USDC) are priced one to one with the US dollar; other coins are priced from live exchange rates when the buyer picks them. See [Supported Chains & Tokens](#supported-chains--tokens) for confirmations and address formats.
 
 ---
 
@@ -57,7 +105,7 @@ The API reference lives at `/docs` on any instance (hosted: `https://crypteo.io/
 
 ### Prerequisites
 
-- Node.js (v20+)
+- Node.js 22 LTS (22.12 or later)
 - PostgreSQL
 - Docker & Docker Compose (recommended for deployment)
 
@@ -231,6 +279,8 @@ Receiving wallets are validated per chain when saved from the dashboard:
 
 Initiate a new payment. If `chain` and `token` are omitted, the user selects them on the hosted checkout page.
 
+`branding` is optional: give this one checkout its own company name, colour, logo (an https URL), support email or link, so one account can take crypto payments for several websites, each with its own look. Anything left out comes from the dashboard's Checkout branding page.
+
 **Request Body:**
 
 ```json
@@ -241,7 +291,12 @@ Initiate a new payment. If `chain` and `token` are omitted, the user selects the
   "externalId": "order_12345",
   "customerEmail": "user@example.com",
   "webhookUrl": "https://your-app.com/webhooks",
-  "metadata": { "userId": "123" }
+  "metadata": { "userId": "123" },
+  "branding": {
+    "name": "Your Shop",
+    "color": "#0f766e",
+    "logoUrl": "https://your-shop.com/logo.png"
+  }
 }
 ```
 
@@ -359,10 +414,46 @@ body keyed by that secret. Recompute it on your end to verify payload integrity.
 - **Hashed Secrets**: API keys are stored as SHA-256 hashes.
 - **Distributed Rate Limiting**: Postgres-backed fixed-window limiting that holds across all app replicas, plus Cloudflare Turnstile on public forms and rate-limited auth/OTP endpoints.
 - **SSRF-Safe Webhooks**: Merchant webhook URLs are validated (and DNS-resolved) to reject private/loopback/link-local targets, both when saved and when delivered.
-- **Brute-Force Resistant OTP**: Cryptographically random codes, capped verification attempts, and constant-time comparison.
+- **Brute-Force Resistant OTP**: Cryptographically random codes stored only as an HMAC, every guess counted atomically before it is checked, daily per-address limits, constant-time comparison, and codes deleted once used or expired.
 - **Audit Logs**: Every webhook attempt and email notification is logged for transparency.
 - **Session Isolation**: Per-session XRP destination tags and Solana memos prevent cross-session payment attribution; where absent, deterministic amount-proximity matching arbitrates so a deposit is claimed by exactly one session.
 - **Minimal Health Surface**: `/api/health` is unauthenticated by design (container and proxy probes depend on it), so it reports operational state as flags and counters only — never raw driver errors, which can carry connection credentials.
+- **Abuse Protection**: throwaway and machine-made sign-up emails are refused (disposable-domain list plus a mail-server check), and accounts that attack the platform are suspended automatically and signed out.
 - **Double-Credit Protection**: Transaction hashes are unique-constrained and checked before crediting; unattributable deposits become `OrphanTransaction` rows for manual review rather than being dropped.
 
 ---
+
+## FAQ
+
+**Is Crypteo free?**
+The code is free and open source under the MIT licence, and a self-hosted instance charges no platform fee. The hosted service at [crypteo.io](https://crypteo.io) charges a small fee on paid volume; see [crypteo.io/pricing](https://crypteo.io/pricing).
+
+**Do I need KYC to accept crypto payments with Crypteo?**
+No. Crypteo is non-custodial: payments go straight to your own wallet and Crypteo never holds funds, so there is no account balance to verify.
+
+**Which wallets can I receive payments in?**
+Any wallet where you control the keys, for example Trust Wallet, Base Wallet, a hardware wallet or your own node. Avoid exchange deposit addresses: exchanges can credit deposits late or to the wrong account.
+
+**Can I accept crypto payments on WooCommerce?**
+Yes. Install the plugin from [`integrations/woocommerce/crypteo-for-woocommerce/`](integrations/woocommerce/crypteo-for-woocommerce/), paste an API key and choose on-site or hosted checkout.
+
+**Can one account serve several websites, each with its own branding?**
+Yes. Create one API key per site (each can send webhooks to its own endpoint) and pass `branding` when creating each payment to give that checkout its own name, colour and logo.
+
+**How does Crypteo know which order a payment belongs to?**
+Each checkout session records the receiving wallet's balance when it opens. The worker watches the chain, and when a deposit arrives it is matched to the open session whose amount it fits best; XRP destination tags and Solana memos are used when the buyer includes them.
+
+**Can I self-host it on my own server?**
+Yes. `docker compose up --build -d` starts the app, the payment worker, PostgreSQL, nginx, backups and a monitor. See [Self-hosting with Docker](#-docker-deployment-self-hosting).
+
+---
+
+## License
+
+[MIT](LICENSE). Crypteo is built and maintained by the team behind [crypteo.io](https://crypteo.io).
+
+## Links
+
+- Website: [crypteo.io](https://crypteo.io)
+- API reference: [crypteo.io/docs](https://crypteo.io/docs)
+- Pricing: [crypteo.io/pricing](https://crypteo.io/pricing)

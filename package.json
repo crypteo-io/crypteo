@@ -1,6 +1,9 @@
 {
   "name": "crypteo",
-  "version": "1.0.19",
+  "version": "1.0.27",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "private": true,
   "scripts": {
     "dev": "next dev",

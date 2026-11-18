@@ -5,11 +5,14 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/notifications", () => ({ notifyAdmins: vi.fn(async () => 1) }));
 vi.mock("@/lib/admin-alerts", () => ({ sendAdminAlert: vi.fn(async () => true) }));
+vi.mock("./account-risk", () => ({ recordRiskEvent: vi.fn(async () => {}) }));
 
 import { sendAdminAlert } from "@/lib/admin-alerts";
 import { prisma } from "@/lib/db";
 import { notifyAdmins } from "@/lib/notifications";
-import { flagProbeInput, probeKind } from "./abuse-signals";
+import { recordRiskEvent } from "./account-risk";
+import { flagProbeInput } from "./abuse-signals";
+import { probeKind } from "./probe-patterns";
 
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 
@@ -82,5 +85,28 @@ describe("flagProbeInput", () => {
   it("never throws into the write that carried the input", async () => {
     mock(prisma.notification.findFirst).mockRejectedValue(new Error("db down"));
     await expect(flagProbeInput("m1", "Payment link", { title: "probe'" })).resolves.toBeUndefined();
+  });
+});
+
+describe("probeKind on hostile lengths (pen-test 2026-11-15)", () => {
+  it("stays fast on a megabyte of unclosed template braces", () => {
+    for (const value of ["{{".repeat(500_000), "${".repeat(500_000), "<%".repeat(500_000), "'".repeat(1_000_000)]) {
+      const started = performance.now();
+      probeKind(value);
+      expect(performance.now() - started).toBeLessThan(200);
+    }
+  });
+});
+
+describe("flagProbeInput and suspension (no false positives, user 2026-11-16)", () => {
+  it("only flags a loose match, never counting it toward suspension", async () => {
+    await flagProbeInput("m1", "Payment link", { title: "probe'", description: "Hello {{order_id}}" });
+    expect(notifyAdmins).toHaveBeenCalled();
+    expect(recordRiskEvent).not.toHaveBeenCalled();
+  });
+
+  it("hands a certain probe to the suspension", async () => {
+    await flagProbeInput("m1", "Sign-up", { name: "Alex'||pg_sleep(8)||'" });
+    expect(recordRiskEvent).toHaveBeenCalledWith("m1", "probe_input", expect.stringContaining("pg_sleep"));
   });
 });

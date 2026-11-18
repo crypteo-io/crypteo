@@ -9,6 +9,11 @@ const tx = vi.hoisted(() => ({
   adminAuditLog: { create: vi.fn() },
 }));
 
+// No real DNS in a unit test: it timed out under the full parallel run.
+vi.mock("@/lib/email-quality", async (orig) => ({
+  ...(await orig<typeof import("@/lib/email-quality")>()),
+  checkEmail: vi.fn(async () => "ok"),
+}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     merchant: { findUnique: vi.fn() },
@@ -17,7 +22,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(), clientIp: () => "203.0.113.5" }));
-vi.mock("@/lib/mailer", () => ({ notifyAccountSecurityChange: vi.fn() }));
+vi.mock("@/lib/mailer", () => ({ notifyAccountSecurityChange: vi.fn(), notifyAccountSuspended: vi.fn() }));
 vi.mock("@/lib/admin-grant", async (orig) => ({
   ...(await orig<typeof import("@/lib/admin-grant")>()),
   confirmsOwnPassword: vi.fn(),
@@ -34,7 +39,7 @@ vi.mock("@/lib/admin", async (orig) => ({
 import { requireAdmin, wouldRemoveLastAdmin } from "@/lib/admin";
 import { announceAdminGrant, confirmsOwnPassword } from "@/lib/admin-grant";
 import { prisma } from "@/lib/db";
-import { notifyAccountSecurityChange } from "@/lib/mailer";
+import { notifyAccountSecurityChange, notifyAccountSuspended } from "@/lib/mailer";
 import { NextResponse } from "next/server";
 import { DELETE, PATCH } from "./route";
 
@@ -86,22 +91,56 @@ describe("PATCH /api/admin/merchants/[id]", () => {
     expect(prisma.merchant.findUnique).not.toHaveBeenCalled();
   });
 
-  it("suspends, records who did it, and tells the merchant", async () => {
-    const res = await patch({ action: "setActive", isActive: false });
+  it("suspends with a reason, records who did it, and tells the merchant vaguely", async () => {
+    const res = await patch({ action: "setActive", isActive: false, reason: "fraud" });
     expect(res.status).toBe(200);
-    expect(tx.merchant.update).toHaveBeenCalledWith({ where: { id: ID }, data: { isActive: false } });
+    expect(tx.merchant.update).toHaveBeenCalledWith({
+      where: { id: ID },
+      data: {
+        isActive: false,
+        suspendedAt: expect.any(Date),
+        sessionsRevokedAt: expect.any(Date),
+        suspensionReason: "fraud",
+        suspensionNote: null,
+      },
+    });
     expect(tx.adminAuditLog.create).toHaveBeenCalledWith({
       data: {
         adminId: ADMIN.id,
         adminEmail: ADMIN.email,
         merchantId: ID,
         action: "setActive",
-        details: { isActive: false },
+        details: { isActive: false, reason: "fraud" },
       },
     });
-    expect(notifyAccountSecurityChange).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "shop@x.co", action: "Account suspended" }),
+    expect(notifyAccountSuspended).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "shop@x.co", reasonLine: "signs that buyers paying you could be at risk" }),
     );
+    expect(notifyAccountSecurityChange).not.toHaveBeenCalled();
+  });
+
+  it("refuses a suspension without a reason, or Other without a note", async () => {
+    expect((await patch({ action: "setActive", isActive: false })).status).toBe(400);
+    expect((await patch({ action: "setActive", isActive: false, reason: "other" })).status).toBe(400);
+    expect(tx.merchant.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps an Other note on the record but emails only the generic line", async () => {
+    expect((await patch({ action: "setActive", isActive: false, reason: "other", note: "Reselling stolen gift cards" })).status).toBe(200);
+    expect(tx.merchant.update).toHaveBeenCalledWith({
+      where: { id: ID },
+      data: expect.objectContaining({ suspensionReason: "other", suspensionNote: "Reselling stolen gift cards" }),
+    });
+    const mail = vi.mocked(notifyAccountSuspended).mock.calls[0]?.[0];
+    expect(JSON.stringify(mail)).not.toContain("gift cards");
+  });
+
+  it("clears the reason on reactivation", async () => {
+    expect((await patch({ action: "setActive", isActive: true })).status).toBe(200);
+    expect(tx.merchant.update).toHaveBeenCalledWith({
+      where: { id: ID },
+      data: { isActive: true, suspendedAt: null, suspensionReason: null, suspensionNote: null },
+    });
   });
 
   it("NEVER writes a reset password into the audit trail", async () => {

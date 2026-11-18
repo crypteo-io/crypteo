@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { otpCodeHtml } from "@/lib/emails/templates";
 import { sendEmailToEach } from "@/lib/mailer";
-import { generateOtp, otpRecentlySent, otpRecipients } from "@/lib/otp";
+import { signInHostRefusal } from "@/lib/admin-host";
+import { generateOtp, otpDailyCapReached, otpRecentlySent, otpRecipients } from "@/lib/otp";
 import { rateLimit, rateLimitScoped } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { NextRequest, NextResponse } from "next/server";
@@ -32,10 +33,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid captcha" }, { status: 400 });
     }
 
-    // Always the same answer whether or not the account exists or a code was
-    // just sent (prevents email enumeration).
+    // Always the same answer whether or not the account exists, a code was
+    // just sent or the day's codes are spent (prevents email enumeration). An
+    // admin resets on the admin host only, a merchant on the site: a stranger
+    // sent admin reset codes from the site (2026-11-15).
     const merchant = await prisma.merchant.findUnique({ where: { email } });
-    if (!merchant || (await otpRecentlySent(email, "PASSWORD_RESET"))) {
+    if (
+      !merchant ||
+      signInHostRefusal(merchant.role, req.headers.get("host")) ||
+      (await otpRecentlySent(email, "PASSWORD_RESET")) ||
+      (await otpDailyCapReached(email, "PASSWORD_RESET"))
+    ) {
       return NextResponse.json({ success: true });
     }
 

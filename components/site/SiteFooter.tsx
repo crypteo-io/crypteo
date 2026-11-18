@@ -69,7 +69,7 @@ export default function SiteFooter() {
             <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-6 lg:gap-12">
               <div className="flex flex-col gap-6 sm:col-span-2">
                 <Logo markClassName="size-9" className="[&>span:last-child]:text-[28px]" />
-                <p className="max-w-sm text-default-700">
+                <p className="max-w-sm text-[15px] font-normal text-default-700">
                   Decentralised payment gateway. Buyers pay your own wallet directly, so there is no
                   processor balance to freeze and no exchange in the middle.
                 </p>
@@ -86,7 +86,7 @@ export default function SiteFooter() {
                       <li key={link.href}>
                         <Link
                           href={link.href}
-                          className="text-default-600 transition-colors hover:text-primary"
+                          className="text-[15px] font-normal text-default-600 transition-colors hover:text-primary"
                         >
                           {link.label}
                         </Link>
@@ -98,7 +98,7 @@ export default function SiteFooter() {
             </div>
 
             <hr className="mt-12 mb-7 border-default-200/70" />
-            <div className="flex flex-col justify-between gap-3 text-sm text-default-600 sm:flex-row">
+            <div className="flex flex-col justify-between gap-3 text-[13px] font-normal text-default-600 sm:flex-row">
               <p>© {new Date().getFullYear()} Crypteo. All rights reserved.</p>
               <a href="mailto:support@crypteo.io" className="hover:text-primary">
                 support@crypteo.io

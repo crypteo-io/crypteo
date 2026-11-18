@@ -1,5 +1,5 @@
 import { ContactInboxClient } from "@/components/dashboard/ContactInboxClient";
-import { probeKind } from "@/lib/abuse-signals";
+import { probeKind } from "@/lib/probe-patterns";
 import { adminPageSession } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import { Metadata } from "next";

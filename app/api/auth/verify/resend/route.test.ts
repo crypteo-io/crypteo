@@ -6,7 +6,9 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn() }));
 vi.mock("@/lib/otp", () => ({
   generateOtp: vi.fn(() => "123456"),
   otpRecentlySent: vi.fn(async () => false),
+  otpDailyCapReached: vi.fn(async () => false),
 }));
+vi.mock("@/lib/email-quality", () => ({ checkEmail: vi.fn(async () => "ok") }));
 vi.mock("@/lib/mailer", () => ({ sendEmail: vi.fn(async () => ({ success: true })) }));
 
 import { prisma } from "@/lib/db";

@@ -1,10 +1,12 @@
+import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    merchant: { findUnique: vi.fn() },
-    wallet: { findUnique: vi.fn(), upsert: vi.fn() },
+    merchant: { findUnique: vi.fn(), update: vi.fn() },
+    wallet: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
@@ -49,48 +51,128 @@ beforeEach(() => {
     id: "m1",
     email: "owner@example.com",
     name: "Owner",
+    walletSlotsUsed: ["eth:eth", "xrp:xrp"],
+    walletChangeVerifiedAt: null,
+    sessionsRevokedAt: null,
+    passwordChangedAt: null,
   });
-  mock(prisma.wallet.upsert).mockImplementation(async (a) => a.create);
+  mock(prisma.wallet.create).mockImplementation((a) => ({ op: "create", ...a.data }));
+  mock(prisma.wallet.update).mockImplementation((a) => ({ op: "update", ...a.data }));
+  mock(prisma.merchant.update).mockImplementation((a) => ({ op: "merchant", ...a }));
+  mock(prisma.$transaction).mockImplementation(async (ops: unknown[]) => ops);
   notify.mockResolvedValue(undefined);
   verify.mockResolvedValue(true);
 });
 
 describe("POST /api/wallets verification code", () => {
   it("refuses a new or changed address without a code, before spending one", async () => {
-    existing.mockResolvedValue({ address: ETH_OLD, xrpTag: null });
+    existing.mockResolvedValue({ id: "w1", address: ETH_OLD, xrpTag: null });
     const res = await post({ chain: "eth", token: "eth", address: ETH, code: undefined });
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ codeRequired: true });
     expect(verify).not.toHaveBeenCalled();
-    expect(prisma.wallet.upsert).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("refuses a wrong code and saves nothing", async () => {
-    existing.mockResolvedValue(null);
+    existing.mockResolvedValue({ id: "w1", address: ETH_OLD, xrpTag: null });
     verify.mockResolvedValue(false);
     const res = await post({ chain: "eth", token: "eth", address: ETH });
     expect(res.status).toBe(400);
     expect(verify).toHaveBeenCalledWith("owner@example.com", "123456", "WALLET_CHANGE");
-    expect(prisma.wallet.upsert).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("asks for a changed XRP destination tag too", async () => {
-    existing.mockResolvedValue({ address: "rDemo", xrpTag: "1" });
+    existing.mockResolvedValue({ id: "w1", address: "rDemo", xrpTag: "1" });
     const res = await post({ chain: "xrp", token: "xrp", address: "rDemo", xrpTag: "2", code: undefined });
     expect(res.status).toBe(403);
   });
 
   it("needs no code to enable or disable the saved address", async () => {
-    existing.mockResolvedValue({ address: ETH, xrpTag: null });
+    existing.mockResolvedValue({ id: "w1", address: ETH, xrpTag: null });
     const res = await post({ chain: "eth", token: "eth", address: ETH, isActive: false, code: undefined });
     expect(res.status).toBe(200);
     expect(verify).not.toHaveBeenCalled();
   });
 });
 
+describe("POST /api/wallets code-free cases", () => {
+  const merchantWith = (extra: Record<string, unknown>) =>
+    mock(prisma.merchant.findUnique).mockResolvedValue({
+      id: "m1",
+      email: "owner@example.com",
+      name: "Owner",
+      walletSlotsUsed: ["eth:eth"],
+      walletChangeVerifiedAt: null,
+      sessionsRevokedAt: null,
+      passwordChangedAt: null,
+      ...extra,
+    });
+
+  it("adds a slot's first address without a code, creates it and records the slot", async () => {
+    merchantWith({ walletSlotsUsed: [] });
+    existing.mockResolvedValue(null);
+    const res = await post({ chain: "eth", token: "eth", address: ETH, code: undefined });
+    expect(res.status).toBe(200);
+    expect(verify).not.toHaveBeenCalled();
+    expect(prisma.wallet.create).toHaveBeenCalled();
+    expect(prisma.wallet.update).not.toHaveBeenCalled();
+    expect(prisma.merchant.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { walletSlotsUsed: { push: "eth:eth" } },
+    });
+    expect(notify.mock.calls[0][0].action).toBe("Receiving wallet added");
+  });
+
+  it("asks for a code to re-add a slot that once held an address (delete then add)", async () => {
+    merchantWith({ walletSlotsUsed: ["eth:eth"] });
+    existing.mockResolvedValue(null);
+    const res = await post({ chain: "eth", token: "eth", address: ETH, code: undefined });
+    expect(res.status).toBe(403);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuses a first add when another request filled the slot meanwhile", async () => {
+    merchantWith({ walletSlotsUsed: [] });
+    existing.mockResolvedValue(null);
+    mock(prisma.$transaction).mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "x" }),
+    );
+    const res = await post({ chain: "eth", token: "eth", address: ETH, code: undefined });
+    expect(res.status).toBe(409);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("records the verification time when a code is accepted", async () => {
+    existing.mockResolvedValue({ id: "w1", address: ETH_OLD, xrpTag: null });
+    await post({ chain: "eth", token: "eth", address: ETH });
+    expect(prisma.merchant.update).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { walletChangeVerifiedAt: expect.any(Date) },
+    });
+  });
+
+  it("changes an address without a code within 15 minutes of an accepted one", async () => {
+    merchantWith({ walletChangeVerifiedAt: new Date(Date.now() - 5 * 60 * 1000) });
+    existing.mockResolvedValue({ id: "w1", address: ETH_OLD, xrpTag: null });
+    const res = await post({ chain: "eth", token: "eth", address: ETH, code: undefined });
+    expect(res.status).toBe(200);
+    expect(verify).not.toHaveBeenCalled();
+    expect(notify.mock.calls[0][0].action).toBe("Receiving wallet changed");
+  });
+
+  it("asks again once the window has passed", async () => {
+    merchantWith({ walletChangeVerifiedAt: new Date(Date.now() - 16 * 60 * 1000) });
+    existing.mockResolvedValue({ id: "w1", address: ETH_OLD, xrpTag: null });
+    const res = await post({ chain: "eth", token: "eth", address: ETH, code: undefined });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("POST /api/wallets security notice", () => {
   it("emails the owner when an address is changed, with masked addresses and IP", async () => {
-    existing.mockResolvedValue({ address: ETH_OLD, xrpTag: null });
+    existing.mockResolvedValue({ id: "w1", address: ETH_OLD, xrpTag: null });
     const res = await post({ chain: "eth", token: "eth", address: ETH });
     expect(res.status).toBe(200);
 
@@ -111,7 +193,7 @@ describe("POST /api/wallets security notice", () => {
   });
 
   it("stays quiet on an enable/disable toggle of the same address", async () => {
-    existing.mockResolvedValue({ address: ETH, xrpTag: null });
+    existing.mockResolvedValue({ id: "w1", address: ETH, xrpTag: null });
     await post({ chain: "eth", token: "eth", address: ETH, isActive: false });
     expect(notify).not.toHaveBeenCalled();
   });

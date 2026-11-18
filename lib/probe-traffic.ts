@@ -8,12 +8,22 @@
 // day from both sites (2026-10-24) and buried the alert; fail2ban challenges
 // them, the routine report counts them, and only a scanner path answered
 // with content (isScannerHit) emails.
+//
+// On 2026-11-15 a prober sent time-based SQL injection (`pg_sleep`, `WAITFOR
+// DELAY`) and IDOR attempts from a mobile pool that gave nearly every request
+// its own IP, so no per-IP count saw it. An injection payload in an API URL is
+// decisive on its own (injectionKind), whatever the IP.
+
+import { certainProbe, probeKind } from "./probe-patterns";
 
 export interface AccessEntry {
   ip: string;
   ts: number;
   method: string;
+  /** Without the query string. */
   path: string;
+  /** As requested, query string included. */
+  target: string;
   status: number;
 }
 
@@ -23,10 +33,10 @@ const LINE = /^(\S+) \S+ \S+ \[(\d{2})\/(\w{3})\/(\d{4}):(\d{2}:\d{2}:\d{2}) ([+
 export function parseAccessLine(line: string): AccessEntry | null {
   const m = LINE.exec(line);
   if (!m) return null;
-  const [, ip, day, month, year, time, zone, method, path, status] = m;
+  const [, ip, day, month, year, time, zone, method, target, status] = m;
   const ts = new Date(`${month} ${day} ${year} ${time} ${zone}`).getTime();
   if (!Number.isFinite(ts)) return null;
-  return { ip, ts, method, path: path.split("?")[0], status: Number(status) };
+  return { ip, ts, method, path: target.split("?")[0], target, status: Number(status) };
 }
 
 // Paths only a scanner asks for: this is a Next.js app with no PHP, no
@@ -63,6 +73,80 @@ export function isProbeRequest(e: AccessEntry): boolean {
  */
 export function isScannerHit(e: AccessEntry): boolean {
   return isScannerRequest(e) && e.status >= 200 && e.status < 300;
+}
+
+function decodeTarget(target: string): string {
+  let text = target.replace(/\+/g, " ");
+  // Twice: probers double-encode (%2527) to slip past one decode.
+  for (let i = 0; i < 2; i++) {
+    try {
+      text = decodeURIComponent(text);
+    } catch {
+      break;
+    }
+  }
+  return text;
+}
+
+/**
+ * The injection an API request's URL carries, or null. API paths only: generic
+ * scanners spray the same payloads at "/" on every server, and fail2ban and
+ * the routine report handle those.
+ */
+export function injectionKind(e: AccessEntry): string | null {
+  if (!e.target.startsWith("/api/")) return null;
+  const kind = probeKind(decodeTarget(e.target));
+  // A trailing quote in a URL is a cuid or slug probe, not a payload: the
+  // per-IP count covers that kind of fuzzing.
+  return kind === "quote fuzzing" ? null : kind;
+}
+
+/**
+ * An API request target that certainly carries a payload (certainProbe), for
+ * suspending the account that sent it. injectionKind is the looser alert.
+ */
+export function urlCertainProbe(target: string): string | null {
+  return target.startsWith("/api/") ? certainProbe(decodeTarget(target)) : null;
+}
+
+
+export interface InjectionProbe {
+  ip: string;
+  kind: string;
+  /** The decoded request, cut short. */
+  request: string;
+}
+
+/** Injection-carrying API requests since the last email, a bounded sample. */
+export class InjectionTally {
+  private sample: InjectionProbe[] = [];
+  private requests = 0;
+  private readonly ips = new Set<string>();
+
+  constructor(private readonly maxSample = 20) {}
+
+  add(e: AccessEntry): void {
+    const kind = injectionKind(e);
+    if (!kind) return;
+    this.requests++;
+    this.ips.add(e.ip);
+    if (this.sample.length < this.maxSample) {
+      this.sample.push({ ip: e.ip, kind, request: `${e.method} ${decodeTarget(e.target)}`.slice(0, 200) });
+    }
+  }
+
+  get pending(): boolean {
+    return this.requests > 0;
+  }
+
+  /** Everything since the last take, and a fresh start. */
+  take(): { requests: number; ips: number; sample: InjectionProbe[] } {
+    const out = { requests: this.requests, ips: this.ips.size, sample: this.sample };
+    this.sample = [];
+    this.requests = 0;
+    this.ips.clear();
+    return out;
+  }
 }
 
 export interface ProbeOffender {

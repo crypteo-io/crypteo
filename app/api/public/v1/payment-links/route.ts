@@ -1,3 +1,4 @@
+import { linkDescriptionSchema, linkTitleSchema } from "@/lib/validation";
 import { flagProbeInput } from "@/lib/abuse-signals";
 import { validateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
@@ -33,8 +34,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const createSchema = z.object({
-      title: z.string().min(1, "Title is required"),
-      description: z.string().optional().nullable(),
+      title: linkTitleSchema,
+      description: linkDescriptionSchema,
       // Link amounts are USD; a zero/negative/NaN one mints unpayable sessions.
       amount: positiveAmountSchema,
       walletAddress: z.string().optional().nullable(),

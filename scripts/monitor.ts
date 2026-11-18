@@ -5,6 +5,7 @@ import * as https from "https";
 import * as tls from "tls";
 import {
   authErrorsHtml,
+  injectionProbeHtml,
   probeTrafficHtml,
   backupFailureHtml,
   checkFailureHtml,
@@ -20,7 +21,7 @@ import {
   type ServiceStartupStatus,
 } from "../lib/emails/templates";
 import { adminRecipients, plannedRestart, sendAdminAlert } from "../lib/admin-alerts";
-import { isScannerHit, parseAccessLine, ProbeWindow, ScannerTally, type ProbeOffender } from "../lib/probe-traffic";
+import { InjectionTally, isScannerHit, parseAccessLine, ProbeWindow, ScannerTally, type ProbeOffender } from "../lib/probe-traffic";
 
 
 const APP_URL = "http://app:3000/api/health";
@@ -677,6 +678,8 @@ const logCursor: { ino: number | null; offset: number; partial: string } = {
 let authErrorTimes: number[] = [];
 const probeWindow = new ProbeWindow(PROBE_WINDOW_MS);
 const scannerTally = new ScannerTally();
+const injectionTally = new InjectionTally();
+let lastInjectionAlertAt = 0;
 // Offenders waiting for the next probe email, and API-probing IPs emailed
 // since the last routine report.
 const pendingProbes = new Map<string, ProbeOffender>();
@@ -740,6 +743,7 @@ async function checkNginxAuthErrors() {
       if (!entry) continue;
       probeWindow.add(entry);
       scannerTally.add(entry);
+      injectionTally.add(entry);
       if (isScannerHit(entry) && !alerted.scannerHitPaths.has(entry.path)) {
         alerted.scannerHitPaths.add(entry.path);
         scannerHits.push(`${entry.path} answered ${entry.status} to ${entry.ip}`);
@@ -782,6 +786,7 @@ async function checkNginxAuthErrors() {
   }
 
   const now = Date.now();
+  await alertInjectionProbes(now);
   const offenders = probeWindow.offenders(now, PROBE_THRESHOLD);
   for (const o of offenders) {
     if (!alerted.probeIps.has(o.ip) || pendingProbes.has(o.ip)) pendingProbes.set(o.ip, o);
@@ -803,6 +808,17 @@ async function checkNginxAuthErrors() {
       })
     );
   }
+}
+
+async function alertInjectionProbes(now: number) {
+  if (!injectionTally.pending || now - lastInjectionAlertAt < PROBE_ALERT_EVERY_MS) return;
+  lastInjectionAlertAt = now;
+  const batch = injectionTally.take();
+  log(`[CHECK] ${batch.requests} injection request(s) from ${batch.ips} IP(s)`);
+  await sendAlert(
+    "🛡️ Crypteo Injection Attempts",
+    injectionProbeHtml({ ...batch, timestamp: new Date(now).toISOString() })
+  );
 }
 
 async function sendRoutineReport() {

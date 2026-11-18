@@ -1,6 +1,9 @@
+import { flagProbeInput } from "@/lib/abuse-signals";
 import { validateApiKey } from "@/lib/api-auth";
+import { paymentBrandingSchema } from "@/lib/branding";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { reservedNameRefusal } from "@/lib/reserved-names";
 import { isSafeWebhookUrl } from "@/lib/security";
 import { returnUrlSchema } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
@@ -41,6 +44,8 @@ export async function POST(req: NextRequest) {
         successUrl: returnUrlSchema.optional().nullable().or(z.literal("")),
         cancelUrl: returnUrlSchema.optional().nullable().or(z.literal("")),
         metadata: z.record(z.string(), z.unknown()).optional().nullable(),
+        // This checkout's own look, over the dashboard's (one account, many sites).
+        branding: paymentBrandingSchema.optional().nullable(),
       })
       .refine((data) => data.amount != null || data.expectedAmount != null, {
         message: "Either amount or expectedAmount must be provided",
@@ -70,7 +75,15 @@ export async function POST(req: NextRequest) {
       successUrl,
       cancelUrl,
       metadata: rawMetadata,
+      branding,
     } = parsed.data;
+
+    // A per-call name follows the account-name rule: nobody checks out as Crypteo.
+    if (branding?.name) {
+      const refusal = reservedNameRefusal(branding.name, merchant.role);
+      if (refusal) return NextResponse.json({ error: refusal, field: "branding.name" }, { status: 400 });
+    }
+    const ownBranding = branding && Object.keys(branding).length > 0 ? branding : null;
 
     if (webhookUrl && !(await isSafeWebhookUrl(webhookUrl))) {
       return NextResponse.json(
@@ -149,9 +162,11 @@ export async function POST(req: NextRequest) {
             ? (metadata as Prisma.InputJsonValue)
             : undefined,
         customerEmail: customerEmail || null,
+        branding: ownBranding ?? undefined,
         expiresAt,
       },
     });
+    if (ownBranding?.name) await flagProbeInput(merchant.id, "Payment branding (API)", { name: ownBranding.name });
 
     return NextResponse.json({
       success: true,
@@ -165,6 +180,7 @@ export async function POST(req: NextRequest) {
         expiresAt: payment.expiresAt,
         xrpDestinationTag: payment.xrpDestinationTag || null,
         solMemoString: payment.solMemoString || null,
+        branding: ownBranding,
       },
     });
   } catch (error) {

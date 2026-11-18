@@ -25,7 +25,9 @@ export function CheckoutColumn({
   className?: string;
   children: ReactNode;
 }) {
-  const supportEmail = branding?.supportEmail || PLATFORM_SUPPORT_EMAIL;
+  // Null when the merchant hid it (dashboard or API): nothing to show or mail.
+  const supportEmail = branding?.showSupportEmail === false ? null : branding?.supportEmail || PLATFORM_SUPPORT_EMAIL;
+  const contact = branding?.contact ?? null;
   const item = "inline-flex min-h-11 items-center gap-1.5 font-semibold text-ck-ink underline-offset-2 hover:underline";
   return (
     <div className={cn("mx-auto flex w-full max-w-[560px] flex-col items-center lg:max-w-[1040px]", className)}>
@@ -46,19 +48,23 @@ export function CheckoutColumn({
         <div className="w-full">{children}</div>
       </CheckoutContactProvider>
       <footer className="mt-6 flex flex-col items-center gap-1 text-sm text-default-600">
-        <div className="flex flex-wrap items-center justify-center gap-x-5">
-          <span className="text-default-500">Need help?</span>
-          <a href={`mailto:${supportEmail}`} className={item}>
-            <Mail size={15} aria-hidden="true" className="shrink-0" />
-            {supportEmail}
-          </a>
-          {branding?.contact && (
-            <a href={branding.contact.url} target="_blank" rel="noopener noreferrer nofollow" className={item}>
-              <ExternalLink size={15} aria-hidden="true" className="shrink-0" />
-              {branding.contact.label}
-            </a>
-          )}
-        </div>
+        {(supportEmail || contact) && (
+          <div className="flex flex-wrap items-center justify-center gap-x-5">
+            <span className="text-default-500">Need help?</span>
+            {supportEmail && (
+              <a href={`mailto:${supportEmail}`} className={item}>
+                <Mail size={15} aria-hidden="true" className="shrink-0" />
+                {supportEmail}
+              </a>
+            )}
+            {contact && (
+              <a href={contact.url} target="_blank" rel="noopener noreferrer nofollow" className={item}>
+                <ExternalLink size={15} aria-hidden="true" className="shrink-0" />
+                {contact.label}
+              </a>
+            )}
+          </div>
+        )}
         {branding?.poweredBy && (
           <a
             href={POWERED_BY_URL}

@@ -1,5 +1,6 @@
 import { signInHostRefusal } from "@/lib/admin-host";
 import { isCaptchaEnforced, isDevLoginBypassEnabled } from "@/lib/auth.config";
+import { SUSPENDED_SIGN_IN_MESSAGE } from "@/lib/account-risk";
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/trusted-device";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { issueChallenge } from "@/lib/two-factor";
+import { otpDailyCapReached } from "@/lib/otp";
 import { verify } from "argon2";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -61,13 +63,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Deactivated (incl. self-deleted) accounts get the same answer as a wrong
-    // password, and must not be able to trigger OTP emails.
+    // A suspended account is told so, once its password is proven (so it
+    // reveals nothing to a guesser), and never gets a code. Self-deleted
+    // accounts can't reach here: their email is replaced.
     if (!merchant.isActive) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: SUSPENDED_SIGN_IN_MESSAGE, suspended: true }, { status: 403 });
     }
 
     // Admins sign in on the admin host only, merchants on the site only.
@@ -106,6 +106,12 @@ export async function POST(req: NextRequest) {
       return respond({ otpRequired: false, ticket: await issueLoginTicket(email, device.token) });
     }
 
+    if (await otpDailyCapReached(email, "LOGIN")) {
+      return NextResponse.json(
+        { error: "Too many sign-in codes for this account today. Try again later." },
+        { status: 429 },
+      );
+    }
     return respond({ otpRequired: true, method: await issueChallenge(merchant, "LOGIN") });
   } catch (error) {
     console.error("Login OTP error:", error);

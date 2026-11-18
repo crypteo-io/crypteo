@@ -3,11 +3,14 @@
 import { PLATFORM_SUPPORT_EMAIL } from "@/lib/branding";
 import { createContext, useContext, type ReactNode } from "react";
 
-const Contact = createContext({ supportEmail: PLATFORM_SUPPORT_EMAIL, platformMark: true });
+const Contact = createContext<{ supportEmail: string | null; platformMark: boolean }>({
+  supportEmail: PLATFORM_SUPPORT_EMAIL,
+  platformMark: true,
+});
 
 /**
  * What every checkout screen shows of its context: the support address (the
- * merchant's when set) and whether the Crypteo mark may stand in for a missing
+ * merchant's when set, null when they hid it) and whether the Crypteo mark may stand in for a missing
  * merchant logo (never on the merchant's own domain).
  */
 export function CheckoutContactProvider({
@@ -20,7 +23,7 @@ export function CheckoutContactProvider({
   children: ReactNode;
 }) {
   return (
-    <Contact.Provider value={{ supportEmail: email || PLATFORM_SUPPORT_EMAIL, platformMark }}>{children}</Contact.Provider>
+    <Contact.Provider value={{ supportEmail: email, platformMark }}>{children}</Contact.Provider>
   );
 }
 

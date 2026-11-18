@@ -334,3 +334,70 @@
     text-align: center;
   }
 }
+
+/* ─── Illustration entrance (components/site/PlayOnView.tsx) ───────────────
+   Each [data-step] starts empty and plays in order of --i once the block
+   gets data-play. Opacity and transform, plus clip-path on the few typed
+   lines. Reduced motion, and no JavaScript (<noscript> in SolutionPage),
+   show it still. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-anim] [data-step] {
+    opacity: 0;
+  }
+  [data-anim][data-play] [data-step] {
+    animation: ill-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 120ms + 100ms);
+  }
+  [data-anim][data-play] [data-step="pop"] {
+    animation-name: ill-pop;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  [data-anim][data-play] [data-step="type"] {
+    animation-name: ill-type;
+    animation-duration: 0.45s;
+    animation-timing-function: steps(14, end);
+  }
+  [data-anim][data-play] [data-step="draw-x"] {
+    animation-name: ill-draw-x;
+    transform-origin: left center;
+  }
+  [data-anim][data-play] [data-step="draw-y"] {
+    animation-name: ill-draw-y;
+    transform-origin: center top;
+  }
+  [data-anim][data-play] [data-step="slide"] {
+    animation-name: ill-slide;
+  }
+  [data-anim][data-play] [data-step="fade"] {
+    animation-name: ill-fade;
+  }
+}
+
+@keyframes ill-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ill-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ill-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ill-type {
+  from { opacity: 1; clip-path: inset(0 100% 0 0); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@keyframes ill-draw-x {
+  from { opacity: 1; transform: scaleX(0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ill-draw-y {
+  from { opacity: 1; transform: scaleY(0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ill-slide {
+  from { opacity: 1; transform: translateX(-1rem); }
+  to { opacity: 1; transform: none; }
+}

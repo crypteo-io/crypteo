@@ -35,9 +35,21 @@ export interface CheckoutBranding {
   color: string | null;
   /** The merchant's support address, or null for Crypteo's. */
   supportEmail: string | null;
+  /** False hides the support address from the footer and the expired screen. */
+  showSupportEmail: boolean;
   contact: CheckoutContact | null;
   poweredBy: boolean;
 }
+
+/** The name a checkout shows: one business name, never a sentence. */
+export const brandNameSchema = z.string().trim().min(1, "Enter a name").max(80, "Use 80 characters or fewer");
+
+const httpsUrl = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .refine((u) => URL.canParse(u) && new URL(u).protocol === "https:", "Use an https:// link");
 
 /**
  * The branding API's footer fields. The link opens from the buyer's checkout,
@@ -51,14 +63,38 @@ export const checkoutFooterSchema = z.object({
     .max(40)
     .nullable()
     .transform((v) => v || null),
-  supportLinkUrl: z
-    .string()
-    .trim()
-    .max(500)
-    .refine((u) => URL.canParse(u) && new URL(u).protocol === "https:", "Use an https:// link")
-    .nullable(),
+  supportLinkUrl: httpsUrl(500).nullable(),
   showPoweredBy: z.boolean(),
+  showSupportEmail: z.boolean(),
 });
+
+/**
+ * Per-payment branding a merchant sends with POST /api/public/v1/payments, so
+ * one account can serve several sites, each with its own look (user,
+ * 2026-11-18). Every field is optional and falls back to the dashboard's
+ * branding. The logo is an https URL the buyer's browser loads directly
+ * (no-referrer), never fetched by us. Stored on Payment.branding and parsed
+ * again on read, so a stored value is never trusted as typed.
+ */
+export const paymentBrandingSchema = z.object({
+  name: brandNameSchema.optional(),
+  color: z
+    .string()
+    .max(16)
+    .transform((c, ctx) => {
+      const hex = normalizeBrandColor(c);
+      if (!hex) ctx.addIssue({ code: "custom", message: "Use a hex colour such as #135ca4" });
+      return hex ?? "";
+    })
+    .optional(),
+  logoUrl: httpsUrl(2048).optional(),
+  supportEmail: z.string().trim().toLowerCase().email().max(254).optional(),
+  supportLinkLabel: z.string().trim().min(1).max(40).optional(),
+  supportLinkUrl: httpsUrl(500).optional(),
+  showSupportEmail: z.boolean().optional(),
+  showPoweredBy: z.boolean().optional(),
+});
+export type PaymentBranding = z.infer<typeof paymentBrandingSchema>;
 
 // WCAG 2 contrast for text on the checkout's white panels.
 const MIN_TEXT_CONTRAST = 4.5;
@@ -144,31 +180,46 @@ export function brandLogoUrl(logoId: string): string {
 /** Prisma `select` for a merchant's checkout branding (the logo's id, not its bytes). */
 export const BRANDING_MERCHANT_SELECT = {
   name: true,
+  brandName: true,
   brandColor: true,
   logo: { select: { id: true } },
   supportEmail: true,
   supportLinkLabel: true,
   supportLinkUrl: true,
   showPoweredBy: true,
+  showSupportEmail: true,
 } as const;
 
-export function toCheckoutBranding(merchant: {
-  name: string;
-  brandColor: string | null;
-  logo: { id: string } | null;
-  supportEmail: string | null;
-  supportLinkLabel: string | null;
-  supportLinkUrl: string | null;
-  showPoweredBy: boolean;
-}): CheckoutBranding {
+/**
+ * A checkout's branding: the merchant's dashboard settings, with a payment's
+ * own (from the API call that created it) laid over them field by field.
+ */
+export function toCheckoutBranding(
+  merchant: {
+    name: string;
+    brandName: string | null;
+    brandColor: string | null;
+    logo: { id: string } | null;
+    supportEmail: string | null;
+    supportLinkLabel: string | null;
+    supportLinkUrl: string | null;
+    showPoweredBy: boolean;
+    showSupportEmail: boolean;
+  },
+  paymentBranding?: unknown,
+): CheckoutBranding {
+  const parsed = paymentBranding == null ? null : paymentBrandingSchema.safeParse(paymentBranding);
+  const own: PaymentBranding = parsed?.success ? parsed.data : {};
+  const linkUrl = own.supportLinkUrl ?? merchant.supportLinkUrl;
   return {
-    name: merchant.name,
-    logoUrl: merchant.logo ? brandLogoUrl(merchant.logo.id) : null,
-    color: merchant.brandColor,
-    supportEmail: merchant.supportEmail,
-    contact: merchant.supportLinkUrl
-      ? { label: merchant.supportLinkLabel || DEFAULT_SUPPORT_LINK_LABEL, url: merchant.supportLinkUrl }
+    name: own.name ?? merchant.brandName ?? merchant.name,
+    logoUrl: own.logoUrl ?? (merchant.logo ? brandLogoUrl(merchant.logo.id) : null),
+    color: own.color ?? merchant.brandColor,
+    supportEmail: own.supportEmail ?? merchant.supportEmail,
+    showSupportEmail: own.showSupportEmail ?? merchant.showSupportEmail,
+    contact: linkUrl
+      ? { label: own.supportLinkLabel ?? merchant.supportLinkLabel ?? DEFAULT_SUPPORT_LINK_LABEL, url: linkUrl }
       : null,
-    poweredBy: merchant.showPoweredBy,
+    poweredBy: own.showPoweredBy ?? merchant.showPoweredBy,
   };
 }

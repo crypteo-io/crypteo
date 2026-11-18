@@ -8,6 +8,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ButtonLink } from "./Button";
+import { SOLUTION_ICONS } from "./solution-icons";
 import { Logo } from "./Logo";
 
 const NAV_LINKS = [
@@ -111,24 +112,32 @@ function SolutionsMenu({ pathname }: { pathname: string }) {
         id={panelId}
         hidden={!open}
         onKeyDown={onPanelKey}
-        className="absolute top-full left-1/2 mt-3 w-[600px] -translate-x-1/2 rounded-2xl border border-default-100 bg-white p-2.5 shadow-[0_20px_50px_-12px_rgba(6,15,22,0.25)]"
+        className="absolute top-full left-1/2 mt-3 w-[640px] -translate-x-1/2 rounded-2xl border border-default-100 bg-white p-2.5 shadow-[0_20px_50px_-12px_rgba(6,15,22,0.25)]"
       >
         <ul className="grid grid-cols-2 gap-1">
-          {SOLUTIONS.map((s) => (
-            <li key={s.key}>
-              <Link
-                href={s.path}
-                onClick={() => setOpen(false)}
-                aria-current={pathname === s.path ? "page" : undefined}
-                className="block rounded-xl px-4 py-3 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none"
-              >
-                <span className={cn("block font-medium", pathname === s.path ? "text-primary" : "text-default-950")}>
-                  {s.label}
-                </span>
-                <span className="mt-0.5 block text-sm font-normal text-default-600">{s.blurb}</span>
-              </Link>
-            </li>
-          ))}
+          {SOLUTIONS.map((s) => {
+            const Icon = SOLUTION_ICONS[s.key];
+            return (
+              <li key={s.key}>
+                <Link
+                  href={s.path}
+                  onClick={() => setOpen(false)}
+                  aria-current={pathname === s.path ? "page" : undefined}
+                  className="group flex gap-3 rounded-xl px-3.5 py-3 transition-colors hover:bg-primary/5 focus-visible:bg-primary/5 focus-visible:outline-none"
+                >
+                  <span className="icon-tile size-9 shrink-0 text-primary transition-colors group-hover:border-sky/30 group-hover:text-sky">
+                    <Icon size={18} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className={cn("block font-medium", pathname === s.path ? "text-primary" : "text-default-950")}>
+                      {s.label}
+                    </span>
+                    <span className="mt-0.5 block text-sm font-normal text-default-600">{s.blurb}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
@@ -155,21 +164,25 @@ function MobileSolutions({ pathname, onNavigate }: { pathname: string; onNavigat
         <ChevronDown size={18} className={cn("transition-transform duration-200", open && "rotate-180")} />
       </button>
       <ul id={listId} hidden={!open} className="mb-1 ml-4 border-l border-default-100 pl-2">
-        {SOLUTIONS.map((s) => (
-          <li key={s.key}>
-            <Link
-              href={s.path}
-              onClick={onNavigate}
-              aria-current={pathname === s.path ? "page" : undefined}
-              className={cn(
-                "block rounded-lg px-4 py-2.5 hover:bg-primary/5",
-                pathname === s.path ? "text-primary" : "text-default-700",
-              )}
-            >
-              {s.label}
-            </Link>
-          </li>
-        ))}
+        {SOLUTIONS.map((s) => {
+          const Icon = SOLUTION_ICONS[s.key];
+          return (
+            <li key={s.key}>
+              <Link
+                href={s.path}
+                onClick={onNavigate}
+                aria-current={pathname === s.path ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-4 py-2.5 hover:bg-primary/5",
+                  pathname === s.path ? "text-primary" : "text-default-700",
+                )}
+              >
+                <Icon size={17} className="shrink-0 text-primary" />
+                {s.label}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </>
   );

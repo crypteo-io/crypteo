@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { otpRecentlySent } from "@/lib/otp";
+import { otpDailyCapReached, otpRecentlySent } from "@/lib/otp";
 import { rateLimit } from "@/lib/rate-limit";
 import { effectiveTwoFactorMethod, issueChallenge } from "@/lib/two-factor";
 import { NextRequest, NextResponse } from "next/server";
@@ -23,8 +23,12 @@ export async function POST(req: NextRequest) {
   });
   if (!merchant) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const method = (await otpRecentlySent(merchant.email, "WALLET_CHANGE"))
-    ? effectiveTwoFactorMethod(merchant)
-    : await issueChallenge(merchant, "WALLET_CHANGE");
+  if (await otpRecentlySent(merchant.email, "WALLET_CHANGE")) {
+    return NextResponse.json({ method: effectiveTwoFactorMethod(merchant) });
+  }
+  if (await otpDailyCapReached(merchant.email, "WALLET_CHANGE")) {
+    return NextResponse.json({ error: "Too many wallet codes today. Try again tomorrow." }, { status: 429 });
+  }
+  const method = await issueChallenge(merchant, "WALLET_CHANGE");
   return NextResponse.json({ method });
 }

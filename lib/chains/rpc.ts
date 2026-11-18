@@ -86,6 +86,17 @@ export function isEndpointRefusal(err: unknown): boolean {
 }
 
 /**
+ * A per-caller rate limit. Keyless public tiers count requests per client IP,
+ * and a proxy's exit IP is shared with its other customers, so the quota it
+ * exhausted is the proxy's, not ours (2026-11-09: Koios answered 429 through a
+ * proxy and ada reads failed while a direct read would have passed).
+ */
+export function isRateLimit(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return msg.includes("too many requests") || msg.includes("rate limit");
+}
+
+/**
  * Per-endpoint health, so rotation can skip what is currently unusable.
  *
  * Two kinds of unusable, deliberately tracked apart:
@@ -217,6 +228,9 @@ export async function withEndpointFailover<T>(
         causes.push({ url: via ? url : `${url} (direct)`, message });
         console.warn(`[rpc] ${label} failed on ${url} (proxy: ${via}): ${message}`);
 
+        // Another client's quota on the proxy's IP: ask again from ours,
+        // charging nobody.
+        if (via && isRateLimit(err)) continue;
         if (isEndpointRefusal(err)) {
           // The endpoint's answer about this method, not a fault. Remember it
           // so rotation stops asking, but keep using the endpoint for what it

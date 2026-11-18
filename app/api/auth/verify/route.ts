@@ -1,3 +1,4 @@
+import { checkEmail, emailRejectionMessage } from "@/lib/email-quality";
 import { prisma } from "@/lib/db";
 import { verifyOtp } from "@/lib/otp";
 import { rateLimit } from "@/lib/rate-limit";
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
     const body = parsed.data;
     const email = body.email.toLowerCase();
     const { otp } = body;
+
+    // An unverified sign-up from before an address was refused can't finish.
+    const rejection = emailRejectionMessage(await checkEmail(email));
+    if (rejection) return NextResponse.json({ error: rejection, field: "email" }, { status: 400 });
 
     // Verify OTP
     const isOtpValid = await verifyOtp(email, otp, "REGISTRATION");

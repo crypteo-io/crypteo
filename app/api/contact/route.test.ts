@@ -6,8 +6,13 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(), rateLimitScoped: vi.fn(
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: vi.fn(async () => true) }));
 vi.mock("@/lib/mailer", () => ({ transporter: { sendMail: vi.fn() } }));
 vi.mock("@/lib/notifications", () => ({ notifyAdmins: vi.fn() }));
+vi.mock("@/lib/email-quality", async (orig) => ({
+  ...(await orig<typeof import("@/lib/email-quality")>()),
+  checkEmail: vi.fn(async () => "ok"),
+}));
 
 import { prisma } from "@/lib/db";
+import { checkEmail } from "@/lib/email-quality";
 import { notifyAdmins } from "@/lib/notifications";
 import { rateLimitScoped } from "@/lib/rate-limit";
 import { POST } from "./route";
@@ -41,5 +46,16 @@ describe("POST /api/contact", () => {
     mock(rateLimitScoped).mockResolvedValueOnce(NextResponse.json({}, { status: 429 }));
     expect((await send({ name: "Jane" })).status).toBe(429);
     expect(prisma.contactMessage.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/contact email check (2026-11-16)", () => {
+  it("refuses a throwaway or machine-made address and stores nothing", async () => {
+    vi.mocked(checkEmail).mockResolvedValueOnce("disposable");
+    const res = await send({ name: "Q", email: "probe@tanpony.com" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ field: "email" });
+    expect(prisma.contactMessage.create).not.toHaveBeenCalled();
+    expect(notifyAdmins).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import {
   contrastRatio,
   DEFAULT_CHECKOUT_PALETTE,
   normalizeBrandColor,
+  paymentBrandingSchema,
 } from "./branding";
 
 describe("normalizeBrandColor", () => {
@@ -63,7 +64,7 @@ describe("checkout colour tokens", () => {
 });
 
 describe("checkoutFooterSchema", () => {
-  const footer = { supportEmail: null, supportLinkLabel: null, supportLinkUrl: null, showPoweredBy: false };
+  const footer = { supportEmail: null, supportLinkLabel: null, supportLinkUrl: null, showPoweredBy: false, showSupportEmail: true };
 
   it("takes only an https link, since buyers open it from the checkout", () => {
     for (const url of ["javascript:alert(1)", "data:text/html,x", "http://shop.example", "shop.example"]) {
@@ -83,11 +84,69 @@ describe("checkoutFooterSchema", () => {
 
 describe("toCheckoutBranding", () => {
   it("shows a link only with a URL, labelled by default", () => {
-    const base = { name: "Shop", brandColor: null, logo: null, supportEmail: null, supportLinkLabel: null, showPoweredBy: true };
+    const base = {
+      name: "Shop",
+      brandName: null,
+      brandColor: null,
+      logo: null,
+      supportEmail: null,
+      supportLinkLabel: null,
+      showPoweredBy: true,
+      showSupportEmail: true,
+    };
     expect(toCheckoutBranding({ ...base, supportLinkUrl: null }).contact).toBeNull();
     expect(toCheckoutBranding({ ...base, supportLinkUrl: "https://s.example" }).contact).toEqual({
       label: "Contact us",
       url: "https://s.example",
     });
+  });
+});
+
+describe("per-payment branding (user, 2026-11-18)", () => {
+  const merchant = {
+    name: "Account Ltd",
+    brandName: "Main Shop",
+    brandColor: "#135ca4",
+    logo: { id: "logo1" },
+    supportEmail: "help@main.example",
+    supportLinkLabel: null,
+    supportLinkUrl: null,
+    showPoweredBy: false,
+    showSupportEmail: true,
+  };
+
+  it("uses the dashboard's branding, the company name over the account name", () => {
+    expect(toCheckoutBranding(merchant)).toMatchObject({ name: "Main Shop", color: "#135ca4", logoUrl: "/api/brand-logo/logo1" });
+    expect(toCheckoutBranding({ ...merchant, brandName: null }).name).toBe("Account Ltd");
+  });
+
+  it("lays a payment's own branding over it field by field", () => {
+    const b = toCheckoutBranding(merchant, {
+      name: "Site B",
+      logoUrl: "https://site-b.example/logo.png",
+      showSupportEmail: false,
+      supportLinkUrl: "https://site-b.example/help",
+    });
+    expect(b).toMatchObject({
+      name: "Site B",
+      color: "#135ca4",
+      logoUrl: "https://site-b.example/logo.png",
+      supportEmail: "help@main.example",
+      showSupportEmail: false,
+      contact: { label: "Contact us", url: "https://site-b.example/help" },
+    });
+  });
+
+  it("never trusts a stored value it can't parse", () => {
+    const b = toCheckoutBranding(merchant, { logoUrl: "javascript:alert(1)", name: "Site B" });
+    expect(b.name).toBe("Main Shop");
+    expect(b.logoUrl).toBe("/api/brand-logo/logo1");
+  });
+
+  it("only accepts https links and hex colours", () => {
+    expect(paymentBrandingSchema.safeParse({ logoUrl: "http://x.example/l.png" }).success).toBe(false);
+    expect(paymentBrandingSchema.safeParse({ supportLinkUrl: "data:text/html,x" }).success).toBe(false);
+    expect(paymentBrandingSchema.safeParse({ color: "#fff;}body{" }).success).toBe(false);
+    expect(paymentBrandingSchema.parse({ color: "ABC" })).toEqual({ color: "#aabbcc" });
   });
 });

@@ -1,3 +1,4 @@
+import { noteForeignRecord } from "@/lib/account-risk";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { rateLimit, rateLimitScoped } from "@/lib/rate-limit";
@@ -28,11 +29,9 @@ export async function POST(
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { paymentId: urlId } = await params;
-  const body = await req.json().catch(() => ({}));
-  const bodyId = body.paymentId || body.data?.paymentId;
-
-  const targetId = bodyId || urlId;
+  // The id comes from the path only: a body id (a null body made this a 500)
+  // was a second way to name the same thing.
+  const { paymentId: targetId } = await params;
 
   if (!targetId || targetId === "crypteo") {
     return NextResponse.json(
@@ -47,8 +46,10 @@ export async function POST(
   if (!payment)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (payment.merchantId !== session.user.id && session.user.role !== "admin")
+  if (payment.merchantId !== session.user.id && session.user.role !== "admin") {
+    await noteForeignRecord(session.user.id, "payment", payment);
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { active, secret, endpoints } = await loadWebhookConfig(payment.merchantId);
   // An admin can open a suspended merchant's payment; nothing is sent for it.

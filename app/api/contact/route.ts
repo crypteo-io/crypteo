@@ -1,8 +1,9 @@
+import { checkEmail, emailRejectionMessage } from "@/lib/email-quality";
 import { contactMessageHtml } from "@/lib/emails/templates";
-import { transporter } from "@/lib/mailer";
+import { SENDER, transporter } from "@/lib/mailer";
 import { prisma } from "@/lib/db";
 import { notifyAdmins } from "@/lib/notifications";
-import { probeKind } from "@/lib/abuse-signals";
+import { probeKind } from "@/lib/probe-patterns";
 import { clientIp, rateLimit, rateLimitScoped } from "@/lib/rate-limit";
 import { HOUR_MS } from "@/lib/time";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
 
     const limited = await rateLimitScoped(req, "contact", MESSAGES_PER_IP_PER_HOUR, HOUR_MS);
     if (limited) return limited;
+    // A reply has to reach someone: the same address check as sign-up.
+    const rejection = emailRejectionMessage(await checkEmail(form.email));
+    if (rejection) return NextResponse.json({ error: rejection, field: "email" }, { status: 400 });
     // Stored and shown escaped either way; the label tells admins it's a probe
     // (`{{7*7}}` as a name on 2026-10-29), not a customer.
     const probe = [form.name, form.subject, form.message].map((v) => (v ? probeKind(v) : null)).find(Boolean);
@@ -74,11 +78,15 @@ export async function POST(req: NextRequest) {
     });
 
     try {
+      // The sender is always ours: a visitor-chosen display name made any
+      // message read as from "Your Bank" in an admin's inbox (pen-test
+      // 2026-11-15), and spliced into SMTP_FROM's own display name it was
+      // malformed.
       await transporter.sendMail({
-        from: `"${headerSafe(form.name)}" <${process.env.SMTP_FROM}>`,
+        from: SENDER,
         replyTo: form.email,
         to: process.env.SMTP_FROM || "admin@crypteo.io",
-        subject: `New Contact Form Submission: ${headerSafe(form.subject) || "No Subject"}`,
+        subject: `Contact form (${headerSafe(form.name, 60)}): ${headerSafe(form.subject) || "No Subject"}`,
         html: contactMessageHtml({ ...form, subject: form.subject || "" }),
       });
     } catch (mailError) {

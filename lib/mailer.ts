@@ -1,6 +1,6 @@
 import { accountDashboardUrl } from "./admin-host";
 import nodemailer from "nodemailer";
-import { accountSecurityChangeHtml, adminMessageHtml } from "./emails/templates";
+import { accountSecurityChangeHtml, accountSuspendedHtml, adminMessageHtml } from "./emails/templates";
 
 const DEFAULT_SMTP_PORT = 587;
 const IMPLICIT_TLS_PORT = 465;
@@ -29,6 +29,9 @@ export function smtpOptions(env: SmtpEnv = process.env) {
 
 export const transporter = nodemailer.createTransport(smtpOptions());
 
+/** The From of every email: configured, never taken from a request. */
+export const SENDER = process.env.SMTP_FROM || '"Crypteo" <noreply@crypteo.io>';
+
 export async function sendEmail({
   to,
   subject,
@@ -42,7 +45,7 @@ export async function sendEmail({
 }): Promise<{ success: boolean; error?: unknown }> {
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Crypteo" <noreply@crypteo.io>',
+      from: SENDER,
       to,
       subject,
       text,
@@ -113,6 +116,26 @@ export async function notifyAccountSecurityChange(opts: {
     }
   } catch (err) {
     console.error("[mailer] security notice failed:", err);
+  }
+}
+
+/** Tell a merchant their account was suspended, and where to ask for a review. Never throws. */
+export async function notifyAccountSuspended(opts: {
+  to: string;
+  merchantName: string;
+  /** The vague reason (merchantSuspensionLine), never the rule that tripped. */
+  reasonLine: string;
+  appealUrl: string;
+}): Promise<void> {
+  try {
+    const result = await sendEmail({
+      to: opts.to,
+      subject: "Your Crypteo account is suspended",
+      html: accountSuspendedHtml(opts),
+    });
+    if (!result.success) console.error("[mailer] suspension notice not delivered");
+  } catch (err) {
+    console.error("[mailer] suspension notice failed:", err);
   }
 }
 

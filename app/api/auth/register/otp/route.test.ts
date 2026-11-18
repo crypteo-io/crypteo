@@ -1,11 +1,23 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// No real DNS in a unit test: under a full parallel run it outlasted the timeout.
+vi.mock("node:dns/promises", () => ({
+  Resolver: class {
+    setServers() {}
+    resolveMx = async () => [{ exchange: "gmail-smtp-in.l.google.com", priority: 5 }];
+    resolve4 = async () => [];
+  },
+}));
 vi.mock("@/lib/db", () => ({ prisma: { merchant: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(), rateLimitScoped: vi.fn() }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: vi.fn(async () => true) }));
 vi.mock("@/lib/mailer", () => ({ transporter: { sendMail: vi.fn() } }));
-vi.mock("@/lib/otp", () => ({ generateOtp: vi.fn(), otpRecentlySent: vi.fn(async () => false) }));
+vi.mock("@/lib/otp", () => ({
+  generateOtp: vi.fn(),
+  otpRecentlySent: vi.fn(async () => false),
+  otpDailyCapReached: vi.fn(async () => false),
+}));
 
 import { prisma } from "@/lib/db";
 import { rateLimitScoped } from "@/lib/rate-limit";

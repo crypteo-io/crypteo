@@ -31,6 +31,7 @@ describe("operational alerts reach ADMIN_EMAILS only", () => {
       "lib/admin-alerts.ts", // ADMIN_EMAILS
       "lib/mailer.ts", // transport, account security notices and admin messages to the owner
       "lib/payment/notify.ts", // the merchant's own payment outcomes
+      "lib/payment/webhook-alerts.ts", // the merchant's own failing webhook URLs
       "lib/two-factor.ts", // sign-in and wallet-change codes to the account owner
       "scripts/test-mail.ts", // manual diagnostic to the first admin
     ];

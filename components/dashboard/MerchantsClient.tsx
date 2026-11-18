@@ -26,6 +26,8 @@ interface Merchant {
   createdAt: string;
   billingHoldAt: string | null;
   disposableEmail: boolean;
+  /** Why the address looks machine-made (suspiciousEmailReason), or null. */
+  suspiciousEmail: string | null;
   _count: { payments: number; wallets: number };
 }
 
@@ -196,6 +198,9 @@ export function MerchantsClient({
                             )}
                             {reservedNameRefusal(m.name, m.role) && <ReservedNameBadge />}
                             {m.disposableEmail && <TemporaryEmailBadge />}
+                            {!m.disposableEmail && m.suspiciousEmail && (
+                              <WarningBadge title={m.suspiciousEmail} label="Suspicious email" />
+                            )}
                             {reservedEmailRefusal(m.email, m.role) && <PlatformEmailBadge />}
                           </p>
                           <p className="text-[12px] text-default-500 mt-0.5 break-all">

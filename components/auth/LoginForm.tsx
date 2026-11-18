@@ -14,6 +14,7 @@ import TurnstileWidget from "@/components/TurnstileWidget";
 import { toast } from "@/lib/toast";
 import { ArrowRight, KeyRound, MailCheck } from "lucide-react";
 import { signIn } from "next-auth/react";
+import { APPEAL_SUBJECT } from "@/lib/suspension-reasons";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -33,6 +34,7 @@ export function LoginForm({ admin }: { admin: boolean }) {
   const [otpMethod, setOtpMethod] = useState<"email" | "totp">("email");
   const [rememberDevice, setRememberDevice] = useState(false);
   const [error, setError] = useState("");
+  const [suspended, setSuspended] = useState(false);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   // Turnstile tokens are single-use and step 1 spends it, so every step-1
@@ -96,6 +98,7 @@ export function LoginForm({ admin }: { admin: boolean }) {
         const otpData = await otpRes.json().catch(() => ({}));
 
         if (!otpRes.ok) {
+          setSuspended(otpData.suspended === true);
           if (otpData.error === "EmailNotVerified") {
             setError("Your account is not verified yet.");
           } else {
@@ -182,6 +185,14 @@ export function LoginForm({ admin }: { admin: boolean }) {
       {error && (
         <AuthAlert>
           <p>{error}</p>
+          {suspended && (
+            <Link
+              href={`/contact?subject=${encodeURIComponent(APPEAL_SUBJECT)}`}
+              className="mt-1 inline-block font-semibold text-sky underline underline-offset-2"
+            >
+              Appeal the suspension
+            </Link>
+          )}
           {error === "Your account is not verified yet." && (
             <Link
               href={`/verify?email=${encodeURIComponent(email)}`}

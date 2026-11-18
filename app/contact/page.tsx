@@ -6,7 +6,9 @@ import { PageHero } from "@/components/site/PageHero";
 import SiteShell from "@/components/site/SiteShell";
 import { AlertCircle, BookOpen, CheckCircle, ChevronRight, CircleHelp, Mail } from "lucide-react";
 import Link from "next/link";
-import React, { useState } from "react";
+import { APPEAL_SUBJECT } from "@/lib/suspension-reasons";
+import React, { useEffect, useState } from "react";
+
 
 const CHANNELS = [
   {
@@ -32,7 +34,7 @@ const CHANNELS = [
   },
 ];
 
-const SUBJECTS = ["General Inquiry", "Technical Support", "Enterprise Sales", "Partnership"];
+const SUBJECTS = ["General Inquiry", "Technical Support", "Enterprise Sales", "Partnership", APPEAL_SUBJECT];
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -46,6 +48,12 @@ export default function ContactPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   // Without a site key the widget renders nothing and the form takes its no-captcha path.
   const captchaRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+
+  // A suspended account's notice links here with ?subject=<APPEAL_SUBJECT>.
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("subject");
+    if (asked && SUBJECTS.includes(asked)) setFormData((prev) => ({ ...prev, subject: asked }));
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,

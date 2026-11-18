@@ -1,5 +1,7 @@
 "use client";
 
+import { SuspendDialog } from "@/components/dashboard/SuspendDialog";
+import { adminSuspensionLabel } from "@/lib/suspension-reasons";
 import { LocalDate } from "@/components/ui/LocalDate";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -37,6 +39,9 @@ interface Data {
     feeExemptBy: string | null;
     feeExemptAt: string | null;
     billingHoldAt: string | null;
+    suspendedAt: string | null;
+    suspensionReason: string | null;
+    suspensionNote: string | null;
     wallets: { id: string; chain: string; token: string; address: string; isActive: boolean; createdAt: string }[];
     apiKeys: {
       id: string;
@@ -114,6 +119,7 @@ export function MerchantAdminClient({ data, isSelf }: { data: Data; isSelf: bool
   const [messaging, setMessaging] = useState(false);
   const [exempting, setExempting] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [suspending, setSuspending] = useState(false);
   const confirmDialog = useConfirm();
 
   const call = async (
@@ -280,9 +286,30 @@ export function MerchantAdminClient({ data, isSelf }: { data: Data; isSelf: bool
             <LocalDate value={merchant.createdAt} options={{ month: "short", day: "numeric", year: "numeric" }} />
             {" · "}
             <span className="font-mono text-[12px]">{merchant.id}</span>
+            {!merchant.isActive && !isDeleted && (
+              <span className="mt-1.5 block font-medium text-accent-red">
+                {adminSuspensionLabel(merchant.suspensionReason, merchant.suspensionNote)}
+                {merchant.suspendedAt && (
+                  <>
+                    {" · since "}
+                    <LocalDate value={merchant.suspendedAt} withTime />
+                  </>
+                )}
+              </span>
+            )}
           </span>
         }
       />
+      {suspending && (
+        <SuspendDialog
+          onClose={() => setSuspending(false)}
+          onSubmit={async (choice) => {
+            if (await call("PATCH", { action: "setActive", isActive: false, ...choice }, "Account suspended")) {
+              setSuspending(false);
+            }
+          }}
+        />
+      )}
       {exempting && (
         <PromptDialog
           title="Exempt this account from fees?"
@@ -394,18 +421,7 @@ export function MerchantAdminClient({ data, isSelf }: { data: Data; isSelf: bool
                   icon={ShieldOff}
                   label="Suspend (ban)"
                   disabled={busy || isSelf}
-                  onClick={() =>
-                    confirm(
-                      {
-                        title: "Suspend this account?",
-                        body: "The merchant is signed out within 5 minutes, their API keys stop working and their payment links stop opening new checkouts. Open checkouts keep being watched so buyers who already paid are credited. Nothing is deleted.",
-                        confirmLabel: "Suspend",
-                        danger: true,
-                      },
-                      { action: "setActive", isActive: false },
-                      "Account suspended",
-                    )
-                  }
+                  onClick={() => setSuspending(true)}
                 />
               ) : (
                 <ActionButton

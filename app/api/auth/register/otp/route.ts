@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { checkEmail, emailRejectionMessage } from "@/lib/email-quality";
 import { otpCodeHtml } from "@/lib/emails/templates";
 import { sendEmail } from "@/lib/mailer";
-import { generateOtp, otpRecentlySent } from "@/lib/otp";
+import { generateOtp, otpDailyCapReached, otpRecentlySent } from "@/lib/otp";
 import { DAY_MS } from "@/lib/time";
 import { rateLimit, rateLimitScoped } from "@/lib/rate-limit";
 import { RESERVED_EMAIL_MESSAGE, isReservedEmail } from "@/lib/reserved-names";
@@ -92,6 +92,12 @@ export async function POST(req: NextRequest) {
     if (await otpRecentlySent(email, "REGISTRATION")) {
       return NextResponse.json(
         { error: "Please wait 60 seconds before requesting another code" },
+        { status: 429 },
+      );
+    }
+    if (await otpDailyCapReached(email, "REGISTRATION")) {
+      return NextResponse.json(
+        { error: "Too many codes sent to this address today. Try again tomorrow." },
         { status: 429 },
       );
     }

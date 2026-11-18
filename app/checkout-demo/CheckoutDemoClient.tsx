@@ -259,6 +259,7 @@ function Demo() {
           logoUrl: settings.logo,
           color: settings.color,
           supportEmail: null,
+          showSupportEmail: true,
           contact: null,
           poweredBy: true,
         }}

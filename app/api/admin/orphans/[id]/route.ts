@@ -118,7 +118,7 @@ export async function POST(
       if (claimed.count !== 1) throw new Conflict("Already resolved");
 
       // Guarded on what was read: the expiry cron or a merchant action may have
-      // moved the session since (status writes are compare-and-set).
+      // moved the session since (CLAUDE.md: status writes are compare-and-set).
       const credited = await tx.payment.updateMany({
         where: { id: payment.id, status: payment.status, receivedAmount: payment.receivedAmount },
         data: {

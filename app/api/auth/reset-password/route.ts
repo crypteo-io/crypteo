@@ -1,6 +1,8 @@
+import { signInHostRefusal } from "@/lib/admin-host";
 import { prisma } from "@/lib/db";
+import { notifyAccountSecurityChange } from "@/lib/mailer";
 import { verifyOtp } from "@/lib/otp";
-import { rateLimit, rateLimitScoped } from "@/lib/rate-limit";
+import { clientIp, rateLimit, rateLimitScoped } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { passwordErrorMessage, passwordRegex } from "@/lib/validation";
 import { hash } from "argon2";
@@ -52,23 +54,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Verify OTP
-    const isOtpValid = await verifyOtp(email, otp, "PASSWORD_RESET");
-    if (!isOtpValid) {
+    // The same answer for no account, the wrong host (forgot-password never
+    // sends an admin's code from the site) and a wrong code.
+    const merchant = await prisma.merchant.findUnique({ where: { email } });
+    if (
+      !merchant ||
+      signInHostRefusal(merchant.role, req.headers.get("host")) ||
+      !(await verifyOtp(email, otp, "PASSWORD_RESET"))
+    ) {
       return NextResponse.json(
         { error: "Invalid or expired reset code" },
         { status: 400 },
-      );
-    }
-
-    const merchant = await prisma.merchant.findUnique({
-      where: { email },
-    });
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: "Merchant not found" },
-        { status: 404 },
       );
     }
 
@@ -81,6 +77,16 @@ export async function POST(req: NextRequest) {
         // Revokes every session opened before the reset (lib/auth.ts).
         passwordChangedAt: new Date(),
       },
+    });
+
+    void notifyAccountSecurityChange({
+      to: merchant.email,
+      merchantName: merchant.name,
+      action: "Password reset",
+      details: [{ label: "Account", value: merchant.email }],
+      ip: clientIp(req),
+      reviewPath: "/dashboard/settings",
+      role: merchant.role,
     });
 
     return NextResponse.json({ success: true });

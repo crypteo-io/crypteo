@@ -170,6 +170,7 @@ function crypteo(string $method, string $path, ?array $body = null): array {
       "Fixed: pass `chain` and `token` together. `amount` is then in units of that token (`0.01` with `eth`/`eth` means 0.01 ETH), and the buyer pays on that network only.",
       "Set `externalId` to your own order ID: it comes back in every webhook and API read, so you can match events to orders without storing anything else. Webhooks for the payment go to the endpoint you chose for the API key that created it, or to your default endpoint (see Webhooks). Pass `webhookUrl` to send this one payment's webhooks somewhere else instead.",
       "Pass `successUrl` to bring the buyer back to your site: once the payment is paid, checkout shows a \"Return to the store\" button and sends them there after 5 seconds. `cancelUrl` is where the back button on the network step and the expired screen lead. Neither marks an order paid: a buyer can open your success page by hand, so fulfil on the `payment.confirmed` webhook (or a read with `paid: true`), never on the visit.",
+      "Selling on more than one site from one account? Pass `branding` to give this checkout its own company name, colour, logo and support contact. Every field is optional and anything you leave out comes from your dashboard's Branding page, so one site can send only its name and logo. The logo is an https image URL that the buyer's browser loads directly; keep it small and square-ish (it shows at up to 200 × 40 px).",
     ],
     tables: [
       {
@@ -185,6 +186,21 @@ function crypteo(string $method, string $path, ?array $body = null): array {
           ["cancelUrl", "string (URL)", "Optional. http(s) page the buyer returns to if they leave checkout or it expires, e.g. your cart."],
           ["customerEmail", "string (email)", "Buyer's email, shown to you in the dashboard."],
           ["metadata", "object", "Your own key/value data, stored with the payment."],
+          ["branding", "object", "Optional. This checkout's own look, over your dashboard branding (see the next table)."],
+        ],
+      },
+      {
+        title: "Request body: branding",
+        columns: ["Field", "Type", "Description"],
+        rows: [
+          ["name", "string, ≤ 80 chars", "Company name shown to the buyer. The same rules as account names apply."],
+          ["color", "string", "Hex theme colour, e.g. `#135ca4` (`#abc` works too). Text stays readable whatever you pick."],
+          ["logoUrl", "string (https URL), ≤ 2048 chars", "Your logo image. Loaded by the buyer's browser, without a referrer."],
+          ["supportEmail", "string (email)", "Where buyers write for help."],
+          ["supportLinkLabel", "string, ≤ 40 chars", "Text of the help link, e.g. `Help centre`."],
+          ["supportLinkUrl", "string (https URL)", "Your help or contact page."],
+          ["showSupportEmail", "boolean", "`false` hides the support email from the checkout."],
+          ["showPoweredBy", "boolean", "`true` shows \"Powered by Crypteo\" under the checkout."],
         ],
       },
       {
@@ -198,6 +214,7 @@ function crypteo(string $method, string $path, ?array $body = null): array {
           ["walletAddress", "string | null", "Receiving address (fixed payments only)."],
           ["xrpDestinationTag, solMemoString", "string | null", "Per-payment identifier the buyer attaches on XRP / Solana."],
           ["expiresAt", "string", "When the checkout closes (creation + 1 hour)."],
+          ["branding", "object | null", "The branding this checkout was given, as stored; null when it uses your dashboard's."],
         ],
       },
     ],
@@ -213,7 +230,13 @@ function crypteo(string $method, string $path, ?array $body = null): array {
     "customerEmail": "buyer@example.com",
     "webhookUrl": "https://api.your-shop.com/webhooks/crypteo",
     "successUrl": "https://your-shop.com/orders/1042/thanks",
-    "cancelUrl": "https://your-shop.com/cart"
+    "cancelUrl": "https://your-shop.com/cart",
+    "branding": {
+      "name": "Your Shop",
+      "color": "#0f766e",
+      "logoUrl": "https://your-shop.com/logo.png",
+      "supportEmail": "help@your-shop.com"
+    }
   }'`,
       },
       {
@@ -756,7 +779,7 @@ function handleEvent(array $event): void {
       {
         columns: ["Status", "Meaning", "Retry?"],
         rows: [
-          ["400", "Invalid request: missing/invalid field, unsupported chain/token pair, no active wallet for the pair, an invalid wallet address configured, a `webhookUrl` that isn't a public http(s) address, a `successUrl`/`cancelUrl` that isn't an http(s) URL, or a `webhookEndpointId` that isn't one of your endpoints. Field errors name the field in `field`.", "No. Fix the request or your wallet settings"],
+          ["400", "Invalid request: missing/invalid field, unsupported chain/token pair, no active wallet for the pair, an invalid wallet address configured, a `webhookUrl` that isn't a public http(s) address, a `successUrl`/`cancelUrl` that isn't an http(s) URL, a `branding` field that isn't valid (an http logo, a bad colour, a reserved name), or a `webhookEndpointId` that isn't one of your endpoints. Field errors name the field in `field`.", "No. Fix the request or your wallet settings"],
           ["401", "Missing, invalid or revoked API key.", "No"],
           ["403", "Not allowed with this key (e.g. payment links with a test key), or the account isn't taking payments: suspended, or paused for overdue platform fees until the invoice on your Billing page is paid. A paused account's checkouts show buyers that the merchant needs to act.", "No. Pay or contact support"],
           ["404", "Payment not found, or it belongs to another account or mode.", "No"],

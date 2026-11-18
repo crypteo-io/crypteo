@@ -53,8 +53,16 @@ vi.mock("./db", () => {
         },
       },
       otp: {
-        deleteMany: async ({ where }: { where: { email: string; type: string } }) => {
-          db.otps = db.otps.filter((o) => !(o.email === where.email && o.type === where.type));
+        deleteMany: async ({ where }: { where: { id?: string; email?: string; type?: string } }) => {
+          const hit = (o: OtpRow) => (where.id ? o.id === where.id : o.email === where.email && o.type === where.type);
+          const before = db.otps.length;
+          db.otps = db.otps.filter((o) => !hit(o));
+          return { count: before - db.otps.length };
+        },
+        updateMany: async ({ where }: { where: { id: string; attempts: { lt: number } } }) => {
+          const row = db.otps.find((o) => o.id === where.id && o.attempts < where.attempts.lt);
+          if (row) row.attempts++;
+          return { count: row ? 1 : 0 };
         },
         create: async ({ data }: { data: Omit<OtpRow, "id" | "attempts" | "createdAt"> }) => {
           db.otps.push({ id: `o${++db.seq}`, attempts: 0, createdAt: new Date(), ...data });

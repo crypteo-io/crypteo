@@ -1,6 +1,6 @@
 import axios from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cardanoAdapter } from "./cardano";
+import { BLOCKFROST_URL, cardanoAdapter } from "./cardano";
 import { resetEndpointPreferences } from "./rpc";
 
 vi.mock("axios", () => ({ default: vi.fn() }));
@@ -25,6 +25,7 @@ beforeEach(() => {
   http.mockReset();
   delete process.env.KOIOS_API_URLS;
   delete process.env.KOIOS_API_TOKEN;
+  delete process.env.BLOCKFROST_PROJECT_ID;
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
@@ -177,5 +178,80 @@ describe("cardanoAdapter.checkPayment", () => {
     );
     const res = await cardanoAdapter.checkPayment(base);
     expect(res.txHash).toBe("pay");
+  });
+});
+
+describe("cardanoAdapter through Blockfrost", () => {
+  const base = { address: ADDR, token: "ada", expectedAmount: 10, balanceSnapshot: 5, createdAt };
+  const koios429 = (url: string) =>
+    url.startsWith("https://api.koios.rest") ? { status: 429, data: "" } : undefined;
+
+  beforeEach(() => {
+    process.env.BLOCKFROST_PROJECT_ID = "mainnetKey";
+  });
+
+  it("is not used without a project id", async () => {
+    delete process.env.BLOCKFROST_PROJECT_ID;
+    serve((url) => koios429(url));
+    await expect(cardanoAdapter.getBalanceSnapshot(ADDR)).rejects.toThrow(/429/);
+    expect(http.mock.calls.every(([cfg]) => !cfg.url.startsWith(BLOCKFROST_URL))).toBe(true);
+  });
+
+  it("reads the balance when Koios is rate-limited, sending the key to Blockfrost only", async () => {
+    const seen: { url: string; headers: Record<string, string> }[] = [];
+    http.mockImplementation(async (cfg) => {
+      const req = cfg as { url: string; headers: Record<string, string> };
+      seen.push(req);
+      if (req.url.startsWith("https://api.koios.rest")) return { status: 429, statusText: "", data: "" };
+      return {
+        status: 200,
+        statusText: "",
+        data: { amount: [{ unit: "lovelace", quantity: "12500000" }, { unit: "abc123", quantity: "7" }] },
+      };
+    });
+    await expect(cardanoAdapter.getBalanceSnapshot(ADDR)).resolves.toBe(12.5);
+    for (const req of seen) {
+      expect(req.headers.project_id === "mainnetKey").toBe(req.url.startsWith(BLOCKFROST_URL));
+    }
+  });
+
+  it("reads Blockfrost's not-found as an address never seen, and nothing else as zero", async () => {
+    serve((url) => koios429(url) ?? { status: 404, data: { status_code: 404, error: "Not Found" } });
+    await expect(cardanoAdapter.getBalanceSnapshot(ADDR)).resolves.toBe(0);
+    resetEndpointPreferences();
+    serve((url) => koios429(url) ?? { status: 402, data: { status_code: 402, error: "Project Over Limit" } });
+    await expect(cardanoAdapter.getBalanceSnapshot(ADDR)).rejects.toThrow();
+    resetEndpointPreferences();
+    serve((url) => koios429(url) ?? { data: { amount: [{ unit: "lovelace", quantity: "-1" }] } });
+    await expect(cardanoAdapter.getBalanceSnapshot(ADDR)).rejects.toThrow();
+  });
+
+  it("detects a payment from UTXOs dated by the address's transactions", async () => {
+    serve((url) => {
+      if (koios429(url)) return koios429(url);
+      if (url.includes("/utxos")) {
+        return {
+          data: [
+            { tx_hash: "pay", amount: [{ unit: "lovelace", quantity: "10000000" }] },
+            { tx_hash: "ancient", amount: [{ unit: "lovelace", quantity: "5000000" }] },
+          ],
+        };
+      }
+      if (url.includes("/transactions")) {
+        return { data: [{ tx_hash: "pay", block_height: 200, block_time: now - 60 }] };
+      }
+      if (url.endsWith("/blocks/latest")) return { data: { height: 219 } };
+      if (url.includes("/addresses/")) {
+        return { data: { amount: [{ unit: "lovelace", quantity: "15000000" }] } };
+      }
+      return undefined;
+    });
+    await expect(cardanoAdapter.checkPayment(base)).resolves.toMatchObject({
+      detected: true,
+      receivedAmount: 10,
+      txHash: "pay",
+      confirmations: 20,
+      status: "confirmed",
+    });
   });
 });

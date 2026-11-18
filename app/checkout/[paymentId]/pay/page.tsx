@@ -42,6 +42,7 @@ export default async function PayPage({
       ...CHECKOUT_PAYMENT_SELECT,
       firstDetectedAt: true,
       metadata: true,
+      branding: true,
       paymentLink: {
         select: { title: true, description: true, chain: true, token: true },
       },
@@ -61,7 +62,7 @@ export default async function PayPage({
   // Whitelist back down to CHECKOUT_PAYMENT_SELECT's shape: copy exactly its
   // keys, so a guard-only field added to the query can't leak by default. The
   // link is narrowed separately — its pinned chain/token are guard inputs.
-  const { paymentLink, merchant, ...scalars } = row;
+  const { paymentLink, merchant, branding: paymentBranding, ...scalars } = row;
   const payment = {
     ...(Object.fromEntries(
       Object.keys(CHECKOUT_PAYMENT_SELECT)
@@ -92,13 +93,13 @@ export default async function PayPage({
   // Ensure JSON serializability for the client component
   const initialPayment: CheckoutPayment = JSON.parse(JSON.stringify(payment));
 
-  const branding = toCheckoutBranding(merchant);
+  const branding = toCheckoutBranding(merchant, paymentBranding);
 
   return (
     <CheckoutShell branding={branding}>
       <PayClient
         initialPayment={initialPayment}
-        merchantName={merchant.name}
+        merchantName={branding.name}
         merchantLogoUrl={branding.logoUrl}
         amountUsd={amountUsd}
         canChangeNetwork={canChangeNetwork}

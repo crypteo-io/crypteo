@@ -2,7 +2,8 @@ import { Accordion } from "@/components/site/Accordion";
 import { ButtonLink } from "@/components/site/Button";
 import { PageHero, SectionHeading } from "@/components/site/PageHero";
 import SiteShell from "@/components/site/SiteShell";
-import { feeCopy, type FeeCopy } from "@/lib/billing/fee-schedule";
+import { FeeCalculator } from "@/components/site/FeeCalculator";
+import { feeCopy, type FeeSchedule } from "@/lib/billing/fee-schedule";
 import { getPublicFeeSchedule } from "@/lib/billing/settings";
 import { pricingFaq } from "@/lib/content/faq";
 import { solutionLink } from "@/lib/content/solution-links";
@@ -40,42 +41,9 @@ const NOT_CHARGED = [
   },
 ];
 
-function usd(amount: number) {
-  return `$${amount.toFixed(2)}`;
-}
-
-// Worked example on one order. Competitor figures are typical published list rates, not quotes.
-const EXAMPLE_ORDER_USD = 100;
-const crypteoCost = (pct: number) => (EXAMPLE_ORDER_USD * pct) / 100;
-
-function comparison(fees: FeeCopy) {
-  return [
-    {
-      name: "Card processors",
-      rate: "2.9% + 30¢",
-      cost: EXAMPLE_ORDER_USD * 0.029 + 0.3,
-      note: "Plus chargebacks, rolling reserves and payout holds.",
-    },
-    {
-      name: "Custodial crypto gateways",
-      rate: "~1%",
-      cost: EXAMPLE_ORDER_USD * 0.01,
-      note: "The gateway holds your funds until it pays you out.",
-    },
-    {
-      name: "Crypteo",
-      rate: fees.range,
-      costLabel: fees.isTiered
-        ? `${usd(crypteoCost(Number(fees.lowest)))} – ${usd(crypteoCost(Number(fees.highest)))}`
-        : usd(crypteoCost(Number(fees.lowest))),
-      note: "Paid straight to your own wallet. Nothing to freeze.",
-      highlight: true,
-    },
-  ];
-}
-
 export default async function PricingPage() {
-  const fees = feeCopy(await getPublicFeeSchedule());
+  const schedule = await getPublicFeeSchedule();
+  const fees = feeCopy(schedule);
   return (
     <SiteShell>
       <PageHero title="Low fees, volume-based pricing">
@@ -88,22 +56,23 @@ export default async function PricingPage() {
         </div>
       </PageHero>
 
-      <Tiers tiers={pricingTiers(fees)} invoicing={fees.invoicing} />
+      <Tiers tiers={pricingTiers(fees)} />
+      <Calculator schedule={schedule} />
       <NotCharged />
-      <Comparison rows={comparison(fees)} />
       <PricingFaq items={pricingFaq(fees)} />
     </SiteShell>
   );
 }
 
-function Tiers({ tiers, invoicing }: { tiers: PricingTier[]; invoicing: string }) {
+function Tiers({ tiers }: { tiers: PricingTier[] }) {
   return (
     <section className="pb-20 md:pb-28">
       <div className="container-site">
         <SectionHeading
           align="left"
           title="One rate on your month's volume"
-          subtitle={`Your rate is set by how much you take in crypto each month and applies to that whole month. Every tier gets every feature, white label branding included. ${invoicing}`}
+          subtitle="Your month's crypto volume sets one rate for all of it. Every tier gets every feature."
+          subtitleClassName="text-[17px]"
           className="mb-8 lg:mb-12"
         />
         <div className={cn("grid gap-7.5", tiers.length >= 3 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
@@ -176,46 +145,16 @@ function NotCharged() {
   );
 }
 
-function Comparison({ rows }: { rows: ReturnType<typeof comparison> }) {
+function Calculator({ schedule }: { schedule: FeeSchedule }) {
   return (
     <section className="py-20 md:py-28">
-      <div className="container-site max-w-245!">
+      <div className="container-site">
         <SectionHeading
-          title={`What a $${EXAMPLE_ORDER_USD} order costs you`}
-          subtitle="Compared with the typical published rates of other ways to take payments online."
+          title="Work out your monthly fee"
+          subtitle="Move the slider to your usual month and see it next to three well-known crypto gateways."
           className="mb-10 md:mb-12"
         />
-        <div className="frame">
-          <div className="frame-inner divide-y divide-default-100">
-            {rows.map((row) => (
-              <div
-                key={row.name}
-                className={cn(
-                  "grid gap-2 p-5 sm:grid-cols-[1.4fr_1fr_auto] sm:items-center sm:gap-6 md:px-8",
-                  row.highlight && "rounded-b-2xl bg-sky/5",
-                )}
-              >
-                <div>
-                  <p className="font-heading text-lg font-semibold text-default-950">{row.name}</p>
-                  <p className="text-sm text-default-600">{row.note}</p>
-                </div>
-                <p className="text-default-700">{row.rate}</p>
-                <p
-                  className={cn(
-                    "font-heading text-2xl font-semibold sm:text-right",
-                    row.highlight ? "text-sky" : "text-default-950",
-                  )}
-                >
-                  {row.costLabel ?? usd(row.cost ?? 0)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="mt-4 text-center text-sm text-default-500">
-          Card and custodial gateway figures are typical published list rates; individual providers and
-          contracts vary.
-        </p>
+        <FeeCalculator schedule={schedule} />
       </div>
     </section>
   );

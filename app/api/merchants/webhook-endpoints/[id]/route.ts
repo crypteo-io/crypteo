@@ -1,3 +1,4 @@
+import { noteForeignRecord } from "@/lib/account-risk";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { notifyAccountSecurityChange } from "@/lib/mailer";
@@ -17,6 +18,7 @@ const patchSchema = endpointInputSchema
 
 async function ownEndpoint(id: string, merchantId: string) {
   const endpoint = await prisma.webhookEndpoint.findUnique({ where: { id } });
+  await noteForeignRecord(merchantId, "webhook endpoint", endpoint);
   return endpoint && endpoint.merchantId === merchantId ? endpoint : null;
 }
 

@@ -196,7 +196,8 @@ export function CheckoutClient({
       className="relative w-full"
     >
       <CheckoutLayout {...layoutProps}>
-        <div className="mb-6 flex items-center justify-between gap-3">
+        {/* Back button, steps, and a matching spacer: the steps centre on a phone */}
+        <div className="mb-6 grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-3 sm:flex sm:justify-between">
           {onContinue ? (
             <div className="size-11" />
           ) : (
@@ -237,7 +238,11 @@ export function CheckoutClient({
           aria-label="Currency and network"
           className={cn(
             "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
-            searchable ? "-mx-1.5 mt-1.5 max-h-[344px] overflow-y-auto p-1.5 [scrollbar-width:thin]" : "mt-6",
+            // A phone lists every coin and the page scrolls: a capped box inside a
+            // scrolling page traps touch scrolling and hides the last coins.
+            searchable
+              ? "-mx-1.5 mt-1.5 p-1.5 sm:max-h-[344px] sm:overflow-y-auto sm:overscroll-contain sm:[scrollbar-width:thin]"
+              : "mt-6",
           )}
         >
           {shownOptions.map((opt, i) => {
@@ -318,7 +323,7 @@ export function CheckoutClient({
             </p>
           </div>
           <div className="flex items-center gap-1.5 pt-0.5 text-xs font-medium text-default-500">
-            <CheckoutTooltip content="A small blockchain fee is required to process your transaction. Ensure your wallet covers this.">
+            <CheckoutTooltip content="Ensure you cover the network fees and send the exact amount.">
               <Info size={14} strokeWidth={2.5} className="cursor-help" />
             </CheckoutTooltip>
             <span className="whitespace-nowrap">+ network fee</span>

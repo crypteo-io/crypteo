@@ -23,15 +23,19 @@ export interface CheckoutFooter {
   supportLinkLabel: string;
   supportLinkUrl: string;
   showPoweredBy: boolean;
+  showSupportEmail: boolean;
 }
 
 export function BrandingClient({
-  merchantName,
+  accountName,
+  initialBrandName,
   initialColor,
   initialLogoUrl,
   initialFooter,
 }: {
-  merchantName: string;
+  accountName: string;
+  /** The checkout name, "" when the account name is used. */
+  initialBrandName: string;
   initialColor: string | null;
   initialLogoUrl: string | null;
   initialFooter: CheckoutFooter;
@@ -43,6 +47,13 @@ export function BrandingClient({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  const [savedBrandName, setSavedBrandName] = useState(initialBrandName);
+  const [brandName, setBrandName] = useState(initialBrandName);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+  const nameDirty = brandName.trim() !== savedBrandName;
+  const merchantName = brandName.trim() || accountName;
 
   const [savedColor, setSavedColor] = useState(initialColor);
   const [color, setColor] = useState<string | null>(initialColor);
@@ -59,6 +70,24 @@ export function BrandingClient({
     setFooter((f) => ({ ...f, ...patch }));
   };
 
+  const saveName = async () => {
+    setSavingName(true);
+    try {
+      const name = brandName.trim();
+      await toast.promise(apiRequest("/api/merchants/branding", { method: "PUT", body: { brandName: name || null } }), {
+        loading: "Saving name…",
+        success: name ? "Company name saved" : "Checkout uses your account name",
+        error: "Name not saved",
+      });
+      setBrandName(name);
+      setSavedBrandName(name);
+    } catch (err) {
+      setNameError(errorMessage(err, "Name not saved"));
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const saveFooter = async () => {
     setSavingFooter(true);
     try {
@@ -70,6 +99,7 @@ export function BrandingClient({
             supportLinkLabel: footer.supportLinkLabel.trim() || null,
             supportLinkUrl: footer.supportLinkUrl.trim() || null,
             showPoweredBy: footer.showPoweredBy,
+            showSupportEmail: footer.showSupportEmail,
           },
         }),
         { loading: "Saving footer…", success: "Checkout footer saved", error: "Footer not saved" },
@@ -163,11 +193,42 @@ export function BrandingClient({
       )}
       <PageHeader
         title="Checkout branding"
-        subtitle="Your logo and colour on every hosted checkout and payment link. Changes apply to open checkouts on their next load."
+        subtitle="Your company name, logo and colour on every hosted checkout and payment link. Changes apply to open checkouts on their next load. API payments can override any of it per call."
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div className="space-y-6">
+          {/* ── Company name ── */}
+          <section className="frame">
+            <div className="frame-inner p-5 sm:p-6">
+              <h2 className="font-heading text-[18px] font-semibold text-default-950">Company name</h2>
+              <p className="mt-1 text-[14px] text-default-500">
+                The name buyers see at checkout. Leave it empty to use your account name, {accountName}.
+              </p>
+              <div className="mt-5">
+                <FooterField label="Company name" id="brand-name" error={nameError ?? undefined}>
+                  <input
+                    id="brand-name"
+                    className="field"
+                    maxLength={80}
+                    placeholder={accountName}
+                    value={brandName}
+                    onChange={(e) => {
+                      setNameError(null);
+                      setBrandName(e.target.value);
+                    }}
+                  />
+                </FooterField>
+              </div>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                {nameDirty && <p className="text-[12px] text-default-500">Unsaved changes</p>}
+                <ActionButton type="button" onClick={saveName} disabled={!nameDirty || savingName} className="px-6 py-3">
+                  <Save size={16} /> Save name
+                </ActionButton>
+              </div>
+            </div>
+          </section>
+
           {/* ── Logo ── */}
           <section className="frame">
             <div className="frame-inner p-5 sm:p-6">
@@ -309,6 +370,21 @@ export function BrandingClient({
                   <input
                     type="checkbox"
                     className="mt-0.5 size-4 shrink-0 accent-primary"
+                    checked={footer.showSupportEmail}
+                    onChange={(e) => editFooter({ showSupportEmail: e.target.checked })}
+                  />
+                  <span className="text-[14px]">
+                    <span className="block font-medium text-default-900">Show a support email</span>
+                    <span className="text-default-500">
+                      &ldquo;Need help?&rdquo; with your address (or {PLATFORM_SUPPORT_EMAIL}) under the checkout and on
+                      the expired page. Turn it off to show only your link, or nothing.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-default-200 p-3.5">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 shrink-0 accent-primary"
                     checked={footer.showPoweredBy}
                     onChange={(e) => editFooter({ showPoweredBy: e.target.checked })}
                   />
@@ -428,12 +504,17 @@ function CheckoutPreview({
         <div className="mt-4 flex min-h-10 items-center justify-center rounded-lg bg-ck text-[13px] font-semibold text-on-ck">
           Continue
         </div>
-        <p className="mt-3 text-center text-[11px] text-default-500">
-          Need help? <span className="font-semibold break-all text-ck-ink">{footer.supportEmail.trim() || PLATFORM_SUPPORT_EMAIL}</span>
-          {footer.supportLinkUrl.trim() && (
-            <span className="ml-2 font-semibold text-ck-ink">{footer.supportLinkLabel.trim() || DEFAULT_SUPPORT_LINK_LABEL}</span>
-          )}
-        </p>
+        {(footer.showSupportEmail || footer.supportLinkUrl.trim()) && (
+          <p className="mt-3 text-center text-[11px] text-default-500">
+            Need help?{" "}
+            {footer.showSupportEmail && (
+              <span className="font-semibold break-all text-ck-ink">{footer.supportEmail.trim() || PLATFORM_SUPPORT_EMAIL}</span>
+            )}
+            {footer.supportLinkUrl.trim() && (
+              <span className="ml-2 font-semibold text-ck-ink">{footer.supportLinkLabel.trim() || DEFAULT_SUPPORT_LINK_LABEL}</span>
+            )}
+          </p>
+        )}
         {footer.showPoweredBy && <p className="mt-1 text-center text-[11px] text-default-400">Powered by Crypteo</p>}
       </div>
     </div>

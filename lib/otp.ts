@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { DELETED_EMAIL_DOMAIN } from "./account-state";
 import { prisma } from "./db";
+import { overLimit } from "./rate-limit";
 import { DAY_MS } from "./time";
 
 // Max wrong guesses before an OTP is invalidated — caps brute-force of the
@@ -11,6 +12,19 @@ const MAX_OTP_ATTEMPTS = 5;
 export type OtpType = "REGISTRATION" | "PASSWORD_RESET" | "LOGIN" | "LOGIN_TICKET" | "WALLET_CHANGE";
 /** Challenges a second factor answers: login, and changing where payments go. */
 export type ChallengeType = "LOGIN" | "WALLET_CHANGE";
+
+/**
+ * What a code is stored as: an HMAC keyed from NEXTAUTH_SECRET, never the
+ * code. A database read or a backup no longer yields codes that work for the
+ * next 30 minutes (pen-test 2026-11-15). Without the secret production fails
+ * closed. Local e2e can compute it in SQL:
+ * encode(hmac('otp:' || code, <secret>, 'sha256'), 'hex').
+ */
+export function otpDigest(code: string): string {
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") throw new Error("NEXTAUTH_SECRET is not set");
+  return crypto.createHmac("sha256", secret ?? "dev-otp-key").update(`otp:${code}`).digest("hex");
+}
 
 export async function generateOtp(
   email: string,
@@ -29,7 +43,7 @@ export async function generateOtp(
   await prisma.otp.create({
     data: {
       email,
-      code,
+      code: otpDigest(code),
       type,
       expiresAt,
     },
@@ -56,31 +70,44 @@ export async function verifyOtp(
     orderBy: { createdAt: "desc" },
   });
 
-  if (!otp) return false;
+  if (!otp) {
+    // A code past its time is thrown away when it is next asked about.
+    await prisma.otp.deleteMany({ where: { email, type, expiresAt: { lte: new Date() } } });
+    return false;
+  }
 
-  if (otp.attempts >= MAX_OTP_ATTEMPTS) {
-    // Too many wrong guesses — burn it.
-    await prisma.otp.delete({ where: { id: otp.id } }).catch(() => {});
+  // Spend the guess before checking it: a read-then-increment let parallel
+  // requests all read attempts < 5 and each get a guess (pen-test 2026-11-15).
+  const claimed = await prisma.otp.updateMany({
+    where: { id: otp.id, attempts: { lt: MAX_OTP_ATTEMPTS } },
+    data: { attempts: { increment: 1 } },
+  });
+  if (claimed.count !== 1) {
+    await prisma.otp.deleteMany({ where: { id: otp.id } });
     return false;
   }
 
   if (!(await matches(code, otp.code))) {
-    await prisma.otp.update({
-      where: { id: otp.id },
-      data: { attempts: { increment: 1 } },
-    });
+    // The last allowed wrong guess throws the code away at once.
+    await prisma.otp.deleteMany({ where: { id: otp.id, attempts: { gte: MAX_OTP_ATTEMPTS } } });
     return false;
   }
 
-  // Success — consume the OTP.
-  await prisma.otp.delete({ where: { id: otp.id } });
-  return true;
+  // Consume it; only the request that deletes the row wins.
+  const consumed = await prisma.otp.deleteMany({ where: { id: otp.id } });
+  return consumed.count === 1;
 }
-// Constant-time compare to avoid leaking the code via timing.
+// Constant-time compare of the submitted code's digest with the stored one.
 function codesEqual(submitted: string, stored: string): boolean {
-  const a = Buffer.from(submitted);
+  const a = Buffer.from(otpDigest(submitted));
   const b = Buffer.from(stored);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/** Every code past its time, thrown away (worker, every 5 minutes). */
+export async function purgeExpiredOtps(now: Date = new Date()): Promise<number> {
+  const { count } = await prisma.otp.deleteMany({ where: { expiresAt: { lte: now } } });
+  return count;
 }
 
 /**
@@ -115,6 +142,20 @@ export async function otpRecentlySent(
     select: { createdAt: true },
   });
   return !!lastOtp && Date.now() - lastOtp.createdAt.getTime() < OTP_RESEND_COOLDOWN_MS;
+}
+
+/**
+ * Codes one address may be sent per day, by type. The cooldown alone still
+ * allowed 1,440 reset codes a day, five guesses each.
+ */
+export const OTP_DAILY_CAP = { REGISTRATION: 5, PASSWORD_RESET: 5, LOGIN: 20, WALLET_CHANGE: 20 } as const;
+
+/** Counts one code towards the address's daily cap; true when it is over. */
+export async function otpDailyCapReached(
+  email: string,
+  type: keyof typeof OTP_DAILY_CAP,
+): Promise<boolean> {
+  return overLimit(`otp-day:${type}:${email}`, OTP_DAILY_CAP[type], DAY_MS);
 }
 
 /** Sign-ups never confirmed within this long are removed. */

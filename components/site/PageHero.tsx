@@ -52,16 +52,18 @@ export function SectionHeading({
   subtitle,
   align = "center",
   className,
+  subtitleClassName,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   align?: "center" | "left";
   className?: string;
+  subtitleClassName?: string;
 }) {
   return (
     <div className={cn(align === "center" ? "mx-auto text-center" : "", "max-w-2xl", className)}>
       <h2 className="text-[34px] leading-[1.15] md:text-[44px]">{title}</h2>
-      {subtitle && <p className="mt-4 text-lg text-default-600">{subtitle}</p>}
+      {subtitle && <p className={cn("mt-4 text-lg text-default-600", subtitleClassName)}>{subtitle}</p>}
     </div>
   );
 }

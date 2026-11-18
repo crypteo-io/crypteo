@@ -236,6 +236,35 @@ describe("withEndpointFailover through a proxy", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
+  it("asks again direct when the proxy's IP is rate-limited, charging nobody", async () => {
+    // 2026-11-09: Koios's per-IP quota was spent on a shared proxy exit.
+    const failure = vi.spyOn(proxies, "reportProxyFailure");
+    const fn = vi.fn(async ({ agent }: RpcAttempt) => {
+      if (agent) throw new Error("HTTP 429 Too Many Requests");
+      return 3;
+    });
+
+    await expect(
+      withEndpointFailover("k", DEFAULTS, "balance", fn),
+    ).resolves.toBe(3);
+    expect(fn.mock.calls.map(([a]) => [a.url, a.agent !== null])).toEqual([
+      ["https://a.example", true],
+      ["https://a.example", false],
+    ]);
+    expect(failure).not.toHaveBeenCalled();
+    expect(endpointHealthSnapshot()["https://a.example"].refusedMethods).toEqual([]);
+  });
+
+  it("takes a rate limit from our own IP as the endpoint's answer", async () => {
+    const fn = vi.fn().mockRejectedValue(new Error("HTTP 429 Too Many Requests"));
+    const err = await withEndpointFailover("k", ["https://a.example"], "balance", fn).catch(
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(AllEndpointsFailedError);
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(endpointHealthSnapshot()["https://a.example"].refusedMethods).toEqual(["balance"]);
+  });
+
   it("reports both the proxied and the direct cause when an endpoint is down", async () => {
     const fn = vi.fn().mockRejectedValue(new Error("down"));
     const err = await withEndpointFailover("k", DEFAULTS, "balance", fn).catch(

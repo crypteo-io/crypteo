@@ -18,3 +18,11 @@ export const returnUrlSchema = z
   .trim()
   .max(2048)
   .refine((u) => URL.canParse(u) && ["http:", "https:"].includes(new URL(u).protocol), "Must be an http(s) URL");
+
+/** A payment link's title and description, shown to buyers at checkout. */
+export const linkTitleSchema = z.string().trim().min(1, "Title is required").max(200, "Title is too long (200 characters at most)");
+export const linkDescriptionSchema = z
+  .string()
+  .max(2000, "Description is too long (2,000 characters at most)")
+  .optional()
+  .nullable();

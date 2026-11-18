@@ -6,7 +6,8 @@ import {
 import { flagProbeInput } from "@/lib/abuse-signals";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, rateLimitScoped } from "@/lib/rate-limit";
+import { HOUR_MS } from "@/lib/time";
 import { accountNameSchema } from "@/lib/account-schemas";
 import { reservedNameRefusal } from "@/lib/reserved-names";
 import { passwordErrorMessage, passwordRegex } from "@/lib/validation";
@@ -111,6 +112,22 @@ export async function DELETE(req: NextRequest) {
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // A session alone can't delete the account: a stolen cookie or an unattended
+  // browser could otherwise end it for good (pen-test 2026-11-15).
+  const parsed = z
+    .object({ password: z.string().min(1).max(1024) })
+    .safeParse(await req.json().catch(() => null));
+  if (!parsed.success)
+    return NextResponse.json({ error: "Enter your password to delete the account", field: "password" }, { status: 400 });
+  const guesses = await rateLimitScoped(req, "delete-account", 5, HOUR_MS);
+  if (guesses) return guesses;
+  const account = await prisma.merchant.findUnique({
+    where: { id: session.user.id },
+    select: { password: true },
+  });
+  if (!account || !(await verify(account.password, parsed.data.password)))
+    return NextResponse.json({ error: "Password is incorrect", field: "password" }, { status: 400 });
 
   if (
     session.user.role === ADMIN_ROLE &&

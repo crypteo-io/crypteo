@@ -51,6 +51,7 @@ export const NOTIFICATION_ICONS: Record<string, { icon: typeof Bell; className: 
   admin_proxy_recovered: { icon: CheckCircle2, className: "text-accent-green bg-accent-green/10" },
   admin_probe: { icon: ShieldAlert, className: "text-amber-600 bg-amber-50" },
   admin_access: { icon: ShieldAlert, className: "text-accent-red bg-accent-red/10" },
+  admin_account_risk: { icon: ShieldAlert, className: "text-accent-red bg-accent-red/10" },
 };
 export const FALLBACK_ICON = { icon: Bell, className: "text-default-600 bg-default-100" };
 
@@ -170,7 +171,7 @@ export function NotificationBell({ area }: { area: DashboardArea }) {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute -right-24 mt-3 w-[min(92vw,380px)] bg-white border border-default-200 rounded-2xl shadow-card-hover z-50 overflow-hidden sm:right-0"
+          className="fixed inset-x-0 top-full mt-2 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-3 sm:w-95 bg-white border border-default-200 rounded-2xl shadow-card-hover z-50 overflow-hidden"
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-default-100">
             <p className="font-heading text-[15px] font-semibold text-default-950">Notifications</p>
@@ -183,7 +184,7 @@ export function NotificationBell({ area }: { area: DashboardArea }) {
               </button>
             )}
           </div>
-          <div className="max-h-105 overflow-y-auto">
+          <div className="max-h-[min(26.25rem,calc(100dvh-11rem))] overflow-y-auto">
             {failed && !feed ? (
               <div className="px-5 py-10 text-center text-[13px] text-default-500">
                 Notifications couldn&apos;t be loaded.{" "}

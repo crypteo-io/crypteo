@@ -16,13 +16,17 @@ import {
   solutionContent,
   type SolutionLinkTarget,
   type SolutionSection,
+  type SolutionShowcase,
 } from "@/lib/content/solutions";
 import { cn } from "@/lib/utils";
 import { faqJsonLd } from "@/lib/seo";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronRight, Zap } from "lucide-react";
 import Link from "next/link";
+import { Fragment } from "react";
+import { SolutionCards } from "./SolutionCards";
+import { SOLUTION_ILLUSTRATIONS } from "./solution-illustrations";
 
-/** The shared template behind the six solution pages; copy comes from lib/content/solutions.ts. */
+/** The shared template behind the solution pages; copy comes from lib/content/solutions.ts. */
 export default async function SolutionPage({ id }: { id: SolutionKey }) {
   const fees = feeCopy(await getPublicFeeSchedule());
   const link = solutionLink(id);
@@ -30,7 +34,12 @@ export default async function SolutionPage({ id }: { id: SolutionKey }) {
   return (
     <SiteShell>
       <JsonLd data={faqJsonLd(page.faq)} />
-      <PageHero eyebrow={<span className="eyebrow">{page.eyebrow}</span>} title={solutionHeading(link.title)} subtitle={page.subtitle}>
+      <PageHero eyebrow={
+          <span className="eyebrow">
+            {page.lightning && <Zap size={16} className="fill-yellow-400 text-yellow-400" />}
+            {page.eyebrow}
+          </span>
+        } title={solutionHeading(link.title)} subtitle={page.subtitle}>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Action target={page.primary} />
           <Action target={page.secondary} variant="white" />
@@ -49,7 +58,10 @@ export default async function SolutionPage({ id }: { id: SolutionKey }) {
       </section>
 
       {page.sections.map((section, i) => (
-        <Section key={section.title} section={section} fees={fees} tinted={i % 2 === 0} />
+        <Fragment key={section.title}>
+          <Section section={section} fees={fees} tinted={i % 2 === 0} />
+          {i === 0 && <Showcase id={id} showcase={page.showcase} />}
+        </Fragment>
       ))}
 
       <section className="py-20 md:py-28">
@@ -174,23 +186,38 @@ function MoreSolutions({ current }: { current: SolutionKey }) {
   return (
     <section className="pb-4">
       <div className="container-site">
-        <h2 className="mb-6 text-2xl md:text-[28px]">More ways to use Crypteo</h2>
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {SOLUTIONS.filter((s) => s.key !== current).map((s) => (
-            <li key={s.key}>
-              <Link
-                href={s.path}
-                className="group flex h-full flex-col rounded-2xl border border-default-200 bg-white p-5 transition-colors hover:border-primary/40"
-              >
-                <span className="flex items-center justify-between gap-2 font-heading font-semibold text-default-950">
-                  {s.label}
-                  <ArrowRight size={16} className="shrink-0 text-default-400 transition-transform group-hover:translate-x-1 group-hover:text-primary" />
-                </span>
-                <span className="mt-1.5 text-sm font-normal text-default-600">{s.blurb}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <SectionHeading title="More ways to use Crypteo" className="mb-10 md:mb-12" />
+        <SolutionCards items={SOLUTIONS.filter((s) => s.key !== current)} />
+      </div>
+    </section>
+  );
+}
+
+/** Illustration on the left, copy on the right; stacked, illustration last, on phones. */
+function Showcase({ id, showcase }: { id: SolutionKey; showcase: SolutionShowcase }) {
+  const Illustration = SOLUTION_ILLUSTRATIONS[id];
+  return (
+    <section className="pb-20 md:pb-28">
+      <div className="container-site grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+        <div className="order-2 min-w-0 lg:order-1">
+          <noscript>
+            <style>{"[data-anim] [data-step]{opacity:1!important}"}</style>
+          </noscript>
+          <Illustration />
+        </div>
+        <div className="order-1 min-w-0 lg:order-2">
+          <span className="eyebrow mb-5">{showcase.eyebrow}</span>
+          <h2 className="mb-5 text-[32px] leading-[1.15] md:text-[44px]">{showcase.title}</h2>
+          <p className="mb-6 text-lg text-default-600">{showcase.body}</p>
+          <ul className="space-y-3">
+            {showcase.points.map((point) => (
+              <li key={point} className="flex gap-3 text-default-700">
+                <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-sky" />
+                <span className="font-normal">{point}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );

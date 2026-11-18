@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({ prisma: { payment: { create: vi.fn() } } }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn() }));
 vi.mock("@/lib/api-auth", () => ({ validateApiKey: vi.fn() }));
 vi.mock("@/lib/security", () => ({ isSafeWebhookUrl: vi.fn(async () => true) }));
+vi.mock("@/lib/abuse-signals", () => ({ flagProbeInput: vi.fn(async () => {}) }));
 
 import { validateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
@@ -63,6 +64,39 @@ describe("POST /api/public/v1/payments return URLs", () => {
     for (const url of ["javascript:alert(1)", "data:text/html,hi", "not a url"]) {
       expect((await call({ successUrl: url })).status).toBe(400);
       expect((await call({ cancelUrl: url })).status).toBe(400);
+    }
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
+// One account, several sites: each API call can carry its own checkout look
+// (user, 2026-11-18).
+describe("POST /api/public/v1/payments branding", () => {
+  it("stores this checkout's own branding, normalised, and echoes it", async () => {
+    const res = await call({
+      branding: { name: " Site B ", color: "#ABC", logoUrl: "https://site-b.example/logo.png", showSupportEmail: false },
+    });
+    expect(res.status).toBe(200);
+    const stored = create.mock.calls[0][0].data.branding;
+    expect(stored).toEqual({
+      name: "Site B",
+      color: "#aabbcc",
+      logoUrl: "https://site-b.example/logo.png",
+      showSupportEmail: false,
+    });
+    expect((await res.json()).payment.branding).toEqual(stored);
+  });
+
+  it("stores nothing for an empty or absent branding", async () => {
+    await call({ branding: {} });
+    await call({});
+    expect(create.mock.calls[0][0].data.branding).toBeUndefined();
+    expect(create.mock.calls[1][0].data.branding).toBeUndefined();
+  });
+
+  it("refuses an http logo, a bad colour and the platform's name", async () => {
+    for (const branding of [{ logoUrl: "http://site-b.example/logo.png" }, { color: "red" }, { name: "Crypteo" }]) {
+      expect((await call({ branding })).status, JSON.stringify(branding)).toBe(400);
     }
     expect(create).not.toHaveBeenCalled();
   });

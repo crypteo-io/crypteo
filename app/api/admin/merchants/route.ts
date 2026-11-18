@@ -1,3 +1,4 @@
+import { checkEmail, emailRejectionMessage } from "@/lib/email-quality";
 import { ADMIN_ROLE, auditLog, requireAdmin, ROLES } from "@/lib/admin";
 import { announceAdminGrant, confirmsOwnPassword, GRANT_PASSWORD_MESSAGE } from "@/lib/admin-grant";
 import { prisma } from "@/lib/db";
@@ -51,6 +52,8 @@ export async function POST(req: NextRequest) {
     );
   }
   const { name, email, password, role, adminPassword } = parsed.data;
+  const rejection = emailRejectionMessage(await checkEmail(email));
+  if (rejection) return NextResponse.json({ error: rejection, field: "email" }, { status: 400 });
   if (role === ADMIN_ROLE && !(await confirmsOwnPassword(admin.id, adminPassword))) {
     return NextResponse.json({ error: GRANT_PASSWORD_MESSAGE, field: "adminPassword" }, { status: 403 });
   }

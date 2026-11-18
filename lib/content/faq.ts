@@ -47,7 +47,7 @@ function faqEntries(fees: FeeCopy) {
     },
     payoutSafety: {
       q: "Could someone change my payout address?",
-      a: "Not without access to your email. Signing in always needs a second factor, an emailed code or an authenticator app, and changing a receiving address asks for a fresh code too. Every wallet change also sends you an alert email.",
+      a: "Not without access to your email. Signing in always needs a second factor, an emailed code or an authenticator app, and replacing a receiving address asks for a code too (one code covers the next 15 minutes of changes). Every address you add or change sends you an alert email.",
     },
     chains: {
       q: "Which blockchains and cryptocurrencies do you support?",
@@ -107,4 +107,4 @@ export function faqGroups(fees: FeeCopy): FaqGroup[] {
 export const homeFaq = (fees: FeeCopy): FaqItem[] =>
   pick(fees, ["custody", "approval", "payoutSafety", "whiteLabel", "openSource", "fees"]);
 
-export const pricingFaq = (fees: FeeCopy): FaqItem[] => pick(fees, ["fees", "openSource", "custody", "chains"]);
+export const pricingFaq = (fees: FeeCopy): FaqItem[] => pick(fees, ["fees", "openSource", "whiteLabel", "custody", "chains"]);

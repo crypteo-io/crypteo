@@ -578,6 +578,79 @@ export function suspiciousInputHtml(opts: {
   `);
 }
 
+/** A merchant account suspended for probing, or an admin account caught probing (lib/account-risk.ts). */
+export function accountRiskAdminHtml(opts: {
+  outcome: "suspended" | "flagged";
+  merchantName: string;
+  merchantEmail: string;
+  events: { kind: string; detail: string; at: string }[];
+  pageUrl: string;
+}): string {
+  const suspended = opts.outcome === "suspended";
+  const rows = opts.events
+    .slice(0, 15)
+    .map(
+      (e) => `<tr><td style="padding:10px 20px;">
+        <span style="display:block;color:${C.heading};font-size:13px;font-weight:600;">${esc(e.kind)} <span style="color:${C.muted};font-weight:400;">· ${esc(e.at)}</span></span>
+        <span style="display:block;font-family:${MONO};color:${C.body};font-size:12px;word-break:break-all;">${esc(e.detail)}</span>
+      </td></tr>`,
+    )
+    .join("");
+  return emailLayout(`
+    ${alertBanner("🛡️", suspended ? "Account suspended automatically" : "An admin account is probing", "#fef2f2")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:0 0 20px;">
+        <p style="margin:0;color:${C.body};font-size:14px;line-height:1.6;">
+          <strong>${esc(opts.merchantName)}</strong> (${esc(opts.merchantEmail)})
+          ${
+            suspended
+              ? "sent requests that can only be an attack on the platform, so it was suspended and signed out everywhere. Checkouts, API keys and webhooks are stopped, and the owner got a short notice with a link to appeal. Reactivate it from the account page if this was a mistake."
+              : "is an admin account and sent requests that read as probes. Admin accounts are never suspended automatically: check with its owner and revoke its access if the account isn't in the right hands."
+          }
+        </p>
+      </td></tr>
+      <tr><td style="padding:0 0 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${SUMMARY_TABLE}">${rows}</table>
+      </td></tr>
+      <tr><td>${ctaButton(opts.pageUrl, "Open the account")}</td></tr>
+    </table>
+  `);
+}
+
+/**
+ * Tells a merchant their account is suspended. Deliberately vague: naming the
+ * rule that tripped teaches a prober how to stay under it.
+ */
+export function accountSuspendedHtml(opts: { merchantName: string; reasonLine: string; appealUrl: string }): string {
+  return emailLayout(
+    `
+    ${alertBanner("🔒", "We've paused your Crypteo account", "#fef2f2")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:0 0 16px;">
+        <p style="margin:0;color:${C.body};font-size:14px;line-height:1.6;">
+          Hi <strong>${esc(opts.merchantName)}</strong>, your Crypteo account has been suspended. Our review picked up ${esc(opts.reasonLine)}, and we pause accounts in that case while we take a closer look.
+        </p>
+      </td></tr>
+      <tr><td style="padding:0 0 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${SUMMARY_TABLE}">
+          <tr><td style="padding:14px 20px;color:${C.body};font-size:13px;line-height:1.6;">
+            <strong style="color:${C.heading};">What's paused:</strong> signing in, your payment links, API keys and webhooks.<br>
+            <strong style="color:${C.heading};">What isn't:</strong> checkouts your buyers already opened. We keep watching them, so no payment goes missing.
+          </td></tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:0 0 24px;">
+        <p style="margin:0;color:${C.body};font-size:14px;line-height:1.6;">
+          Think we got this wrong? Send us an appeal and a person will look at your account.
+        </p>
+      </td></tr>
+      <tr><td>${ctaButton(opts.appealUrl, "Appeal the suspension")}</td></tr>
+    </table>
+  `,
+    "Account",
+  );
+}
+
 /** One or more IPs probing the site (scripts/monitor.ts, lib/probe-traffic.ts). */
 export function probeTrafficHtml(opts: {
   offenders: { ip: string; count: number; topPaths: string[] }[];
@@ -597,6 +670,33 @@ export function probeTrafficHtml(opts: {
         <table width="100%" cellpadding="0" cellspacing="0" style="${SUMMARY_TABLE}">
           ${opts.offenders
             .map((o) => metaRow(esc(o.ip), `<strong>${o.count} requests</strong><br><span style="color:${C.muted};font-size:12px;">${o.topPaths.map(esc).join("<br>")}</span>`))
+            .join("")}
+          ${metaRow("Detected At", esc(opts.timestamp))}
+        </table>
+      </td></tr>
+    </table>
+  `);
+}
+
+/** Injection payloads in API URLs, from any number of IPs (lib/probe-traffic.ts). */
+export function injectionProbeHtml(opts: {
+  requests: number;
+  ips: number;
+  sample: { ip: string; kind: string; request: string }[];
+  timestamp: string;
+}): string {
+  return emailLayout(`
+    ${alertBanner("🛡️", "Injection Attempts on the API", "#fffbeb")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:0 0 20px;">
+        <p style="margin:0;color:${C.body};font-size:14px;line-height:1.6;">
+          ${opts.requests} API request${opts.requests === 1 ? "" : "s"} from ${opts.ips} address${opts.ips === 1 ? "" : "es"} carried an injection payload in the URL (SQL, script, template or path traversal). Queries are parameterised and output escaped, so a payload does nothing by itself; this says someone is actively testing the platform, often from many IPs so the per-address count never trips. Check for accounts signed up around the same time and suspend them. At most one of these emails goes out an hour.
+        </p>
+      </td></tr>
+      <tr><td style="padding:0 0 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="${SUMMARY_TABLE}">
+          ${opts.sample
+            .map((p) => metaRow(esc(p.ip), `<strong>${esc(p.kind)}</strong><br><code style="font-size:12px;word-break:break-all;">${esc(p.request)}</code>`))
             .join("")}
           ${metaRow("Detected At", esc(opts.timestamp))}
         </table>
@@ -1268,6 +1368,47 @@ export function billingNoticeHtml(opts: {
     </table>
   `,
     "Billing",
+  );
+}
+
+// ─── FAILING WEBHOOK (MERCHANT) ───────────────────────────────────────────────
+
+/** The dashboard's failing-webhook notice, by email: only the merchant's own URLs. */
+export function webhookFailingHtml(opts: {
+  merchantName: string;
+  endpoints: { url: string; failures: number; attempts: number; lastStatusCode: number | null }[];
+  settingsUrl: string;
+}): string {
+  const one = opts.endpoints.length === 1;
+  const rows = opts.endpoints
+    .map(
+      (e) => `<tr><td style="padding:10px 20px;">
+        <span style="display:block;font-family:${MONO};color:${C.heading};font-size:12px;word-break:break-all;">${esc(e.url)}</span>
+        <span style="color:${C.muted};font-size:12px;">${esc(e.failures)} of ${esc(e.attempts)} deliveries failed, latest ${e.lastStatusCode ? `HTTP ${esc(e.lastStatusCode)}` : "without a response"}</span>
+      </td></tr>`,
+    )
+    .join("");
+  return emailLayout(
+    `
+    ${alertBanner("⚠️", one ? "Your webhook isn't getting through" : `${opts.endpoints.length} webhooks aren't getting through`, "#fef2f2")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:0 0 20px;">
+        <p style="margin:0;color:${C.body};font-size:14px;line-height:1.6;">
+          Hi <strong>${esc(opts.merchantName)}</strong>, we couldn't deliver payment updates to ${one ? "this address" : "these addresses"}, so your store may still show orders as unpaid after the money has arrived. Here is what happened over the last 7 days:
+        </p>
+      </td></tr>
+      <tr><td style="padding:0 0 20px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${SUMMARY_TABLE}">${rows}</table>
+      </td></tr>
+      <tr><td style="padding:0 0 24px;">
+        <p style="margin:0;color:${C.body};font-size:13px;line-height:1.6;">
+          The URL has to be a server route that accepts a POST and replies with a 2xx status. We keep retrying, and once it's fixed you can resend any payment's webhook from its page.
+        </p>
+      </td></tr>
+      <tr><td>${ctaButton(opts.settingsUrl, "Check webhook settings")}</td></tr>
+    </table>
+  `,
+    "Webhooks",
   );
 }
 

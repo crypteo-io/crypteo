@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import {
   PAYMENT_TOLERANCE,
@@ -33,8 +34,10 @@ export async function PUT(req: NextRequest) {
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json().catch(() => ({}));
-  const raw = Number(body.underpaidThreshold);
+  const parsed = z
+    .object({ underpaidThreshold: z.number() })
+    .safeParse(await req.json().catch(() => null));
+  const raw = parsed.success ? parsed.data.underpaidThreshold : NaN;
   // Snap to whole-percent granularity so the stored ratio round-trips exactly
   // through the percentage the UI displays (no 0.955 → "96%" drift).
   const value = Math.round(raw * 100) / 100;

@@ -1,4 +1,6 @@
-FROM node:20-alpine
+# Node 22 LTS: Node 20 went end of life on 2026-04-30 (pen-test 2026-11-15).
+# Keep in step with package.json "engines" (lib/runtime-floor.test.ts).
+FROM node:22-alpine
 
 WORKDIR /app
 
